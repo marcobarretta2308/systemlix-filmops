@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Systemlix FilmOps
 
-## Getting Started
+Piattaforma SaaS **multi-tenant** per produzioni cinematografiche e audiovisive.
 
-First, run the development server:
+## Architettura
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+Utente → Company (tenant) → Workspace → Project → Tools & Data
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ogni dato è isolato per `company_id` e `project_id`. Gli utenti vedono solo le produzioni a cui appartengono.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Ruoli
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Livello | Ruoli |
+|---------|--------|
+| Piattaforma | Platform Owner |
+| Company | Company Admin, Producer, Viewer |
+| Progetto | Project Admin, Producer, AD, Department User, Cast/Crew User, Viewer |
 
-## Learn More
+### Entità (Supabase-ready)
 
-To learn more about Next.js, take a look at the following resources:
+`users`, `companies`, `company_members`, `workspaces`, `projects`, `project_members`, `scripts`, `scenes`, `cast_crew`, `locations`, `shooting_days`, `call_sheets`, `assistant_threads`, `assistant_messages`, `project_archive_logs`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Tipi in `src/lib/types/database.ts`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Avvio
 
-## Deploy on Vercel
+```bash
+npm install
+npm run dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Account demo
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Email | Accesso |
+|-------|---------|
+| `owner@systemlix.it` | Tutte le produzioni |
+| `admin@alfa.it` | Solo Produzione Alfa |
+| `admin@beta.it` | Solo Produzione Beta |
+
+## Flusso
+
+1. Login → **Selettore produzione**
+2. Dashboard → Workspace → Progetti
+3. Apri progetto → Script Breakdown / Call Sheet / Set Assistant
+
+## Mock data
+
+Seed in `src/lib/mock-data/seed.ts` — dati generici, nessun cliente hardcoded nella logica.
