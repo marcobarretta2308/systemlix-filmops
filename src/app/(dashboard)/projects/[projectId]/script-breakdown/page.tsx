@@ -81,9 +81,13 @@ export default function ScriptBreakdownPage() {
     setToast(`${generated.length} scene generate dal copione.`);
   };
 
-  const handleSave = () => {
-    const count = saveBreakdownToProject();
-    setToast(count > 0 ? `${count} scene salvate nel database del progetto.` : "Nessuna scena da salvare.");
+  const handleSave = async () => {
+    const count = await saveBreakdownToProject();
+    setToast(
+      count > 0
+        ? `${count} scene salvate nel database del progetto.`
+        : "Nessuna scena da salvare."
+    );
   };
 
   const updateCell = (sceneId: string, field: keyof Scene, value: string) => {

@@ -40,8 +40,8 @@ export function TopBar() {
           </div>
           {user && <UserAvatar name={user.full_name} />}
           <button
-            onClick={() => {
-              logout();
+            onClick={async () => {
+              await logout();
               router.push("/login");
             }}
             className="rounded-[var(--radius-sm)] p-2 text-[var(--text-muted)] transition-colors duration-150 hover:bg-white/[0.04] hover:text-[var(--text-secondary)]"

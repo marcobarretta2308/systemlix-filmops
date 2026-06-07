@@ -3,8 +3,10 @@
 export type ProjectStatus = "active" | "paused" | "archived" | "locked";
 export type CompanyStatus = "active" | "suspended" | "archived";
 export type WorkspaceStatus = "active" | "archived";
-export type MemberStatus = "active" | "invited" | "suspended";
-export type AccessStatus = "active" | "revoked" | "pending";
+export type GlobalRole = "platform_owner" | "user";
+export type AuthStatus = "active" | "suspended" | "revoked" | "banned";
+export type MemberStatus = "active" | "suspended" | "revoked";
+export type AccessStatus = "active" | "suspended" | "revoked";
 export type CallSheetStatus = "draft" | "final" | "locked" | "archived";
 export type Complexity = "low" | "medium" | "high" | "very_high";
 export type IntExt = "INT" | "EXT";
@@ -34,17 +36,21 @@ export type SetAssistantRole =
   | "extra";
 
 export type ArchiveAction =
-  | "archived"
-  | "locked"
-  | "completed"
-  | "exported"
-  | "unlocked";
+  | "project_archived"
+  | "project_locked"
+  | "access_revoked"
+  | "user_suspended"
+  | "user_reactivated"
+  | "project_exported"
+  | "project_reactivated";
 
 export interface User {
   id: string;
   email: string;
   full_name: string;
   avatar_url?: string;
+  global_role: GlobalRole;
+  auth_status: AuthStatus;
   created_at: string;
 }
 
@@ -63,6 +69,8 @@ export interface CompanyMember {
   user_id: string;
   role: CompanyRole;
   status: MemberStatus;
+  access_start_date?: string;
+  access_end_date?: string;
   invited_at?: string;
   joined_at?: string;
 }
@@ -99,6 +107,8 @@ export interface ProjectMember {
   role: ProjectRole;
   department?: string;
   access_status: AccessStatus;
+  access_start_date?: string;
+  access_end_date?: string;
   created_at: string;
 }
 

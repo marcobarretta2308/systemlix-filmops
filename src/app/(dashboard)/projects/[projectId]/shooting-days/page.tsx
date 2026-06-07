@@ -26,7 +26,7 @@ function ScheduleCell({ label, value }: { label: string; value: string }) {
 
 export default function ShootingDaysPage() {
   const { projectId } = useSyncProjectFromUrl();
-  const { shootingDays, setShootingDays, locations, scenes, canEditProject } = useProject();
+  const { shootingDays, addShootingDay, locations, scenes, canEditProject } = useProject();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Partial<ShootingDay>>({
     day_number: "", date: new Date().toISOString().split("T")[0],
@@ -48,20 +48,25 @@ export default function ShootingDaysPage() {
     }));
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!projectId || !form.day_number) return;
-    const day: ShootingDay = {
-      id: `sd-${Date.now()}`, project_id: projectId,
-      day_number: form.day_number!, date: form.date!, location_id: form.location_id!,
+    const day = await addShootingDay({
+      day_number: form.day_number!,
+      date: form.date!,
+      location_id: form.location_id!,
       selected_scene_ids: form.selected_scene_ids ?? [],
-      general_crew_call: form.general_crew_call!, cast_call: form.cast_call!,
-      makeup_call: form.makeup_call!, first_shot: form.first_shot!, lunch: form.lunch!,
-      estimated_wrap: form.estimated_wrap!, parking: form.parking ?? "",
-      transport_notes: form.transport_notes ?? "", emergency_contact: form.emergency_contact ?? "",
-      production_notes: form.production_notes ?? "", created_at: new Date().toISOString(),
-    };
-    setShootingDays((prev) => [...prev, day]);
-    setOpen(false);
+      general_crew_call: form.general_crew_call!,
+      cast_call: form.cast_call!,
+      makeup_call: form.makeup_call!,
+      first_shot: form.first_shot!,
+      lunch: form.lunch!,
+      estimated_wrap: form.estimated_wrap!,
+      parking: form.parking ?? "",
+      transport_notes: form.transport_notes ?? "",
+      emergency_contact: form.emergency_contact ?? "",
+      production_notes: form.production_notes ?? "",
+    });
+    if (day) setOpen(false);
   };
 
   return (

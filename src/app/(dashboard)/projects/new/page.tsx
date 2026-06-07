@@ -24,10 +24,13 @@ export default function NewProjectPage() {
     activeWorkspace?.id ?? companyWorkspaces[0]?.id ?? ""
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !workspaceId) return;
-    const project = createProject({
+    setSubmitting(true);
+    const project = await createProject({
       title: title.trim(),
       production_type: productionType,
       description: description.trim(),
@@ -36,6 +39,7 @@ export default function NewProjectPage() {
       end_date: endDate || undefined,
       workspace_id: workspaceId,
     });
+    setSubmitting(false);
     if (project) router.push(`/projects/${project.id}`);
   };
 
@@ -87,8 +91,8 @@ export default function NewProjectPage() {
             <Input label="Data fine prevista" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
           <div className="flex gap-2 pt-2">
-            <Button type="submit" disabled={!title.trim() || !workspaceId}>
-              Crea progetto
+            <Button type="submit" disabled={submitting || !title.trim() || !workspaceId}>
+              {submitting ? "Creazione…" : "Crea progetto"}
             </Button>
             <Button type="button" variant="outline" onClick={() => router.back()}>
               Annulla

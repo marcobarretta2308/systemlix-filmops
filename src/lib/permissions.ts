@@ -1,8 +1,16 @@
+import {
+  isPlatformOwnerUser,
+  isProjectFinished,
+  isProjectMembershipActive,
+} from "@/lib/access-control";
 import type {
+  CompanyMember,
   CompanyRole,
   Project,
+  ProjectMember,
   ProjectRole,
   ProjectStatus,
+  User,
 } from "@/lib/types";
 
 const ADMIN_COMPANY_ROLES: CompanyRole[] = [
@@ -18,73 +26,131 @@ const EDIT_PROJECT_ROLES: ProjectRole[] = [
   "assistant_director",
 ];
 
+const SCENE_DAY_CALLSHEET_ROLES: ProjectRole[] = [
+  "project_admin",
+  "producer",
+  "assistant_director",
+];
+
 export function isProjectRestricted(status: ProjectStatus): boolean {
-  return status === "archived" || status === "locked";
+  return isProjectFinished(status);
 }
 
-export function canManagePlatform(role: CompanyRole): boolean {
-  return role === "platform_owner";
+export function isCompanyAdmin(role: CompanyRole): boolean {
+  return role === "company_admin";
+}
+
+export function canManagePlatform(user: User | null, companyRole?: CompanyRole | null): boolean {
+  return isPlatformOwnerUser(user) || companyRole === "platform_owner";
 }
 
 export function canManageCompany(role: CompanyRole): boolean {
   return ADMIN_COMPANY_ROLES.includes(role);
 }
 
-export function canCreateWorkspace(role: CompanyRole): boolean {
-  return ADMIN_COMPANY_ROLES.includes(role);
+export function canCreateWorkspace(user: User | null, role: CompanyRole): boolean {
+  return canManagePlatform(user, role) || role === "company_admin";
 }
 
-export function canCreateProject(role: CompanyRole): boolean {
-  return ADMIN_COMPANY_ROLES.includes(role) || role === "producer";
+export function canCreateProject(user: User | null, role: CompanyRole): boolean {
+  if (canManagePlatform(user, role)) return true;
+  if (role === "company_admin") return true;
+  return false;
 }
 
-export function canInviteUsers(role: CompanyRole): boolean {
-  return ADMIN_COMPANY_ROLES.includes(role);
+export function canInviteUsers(user: User | null, role: CompanyRole): boolean {
+  if (canManagePlatform(user)) return true;
+  return role === "company_admin";
+}
+
+export function canCreateGlobalUsers(user: User | null): boolean {
+  return isPlatformOwnerUser(user);
 }
 
 export function canArchiveProject(
+  user: User | null,
   companyRole: CompanyRole,
   projectRole?: ProjectRole
 ): boolean {
-  return (
-    canManageCompany(companyRole) ||
-    (projectRole !== undefined && ADMIN_PROJECT_ROLES.includes(projectRole))
-  );
+  if (canManagePlatform(user, companyRole)) return true;
+  if (companyRole === "company_admin") return true;
+  return projectRole !== undefined && ADMIN_PROJECT_ROLES.includes(projectRole);
 }
 
 export function canEditProject(
   project: Project,
+  user: User | null,
   companyRole: CompanyRole,
-  projectRole?: ProjectRole
+  projectRole?: ProjectRole,
+  projectMembership?: ProjectMember | null
 ): boolean {
-  if (isProjectRestricted(project.status)) {
-    return canManageCompany(companyRole);
+  if (projectMembership && !isProjectMembershipActive(projectMembership)) {
+    return false;
   }
+
+  if (isProjectRestricted(project.status)) {
+    return canManagePlatform(user, companyRole) || companyRole === "company_admin";
+  }
+
   if (project.status === "paused") {
-    if (canManageCompany(companyRole)) return true;
+    if (canManagePlatform(user, companyRole) || companyRole === "company_admin") return true;
     if (projectRole && ADMIN_PROJECT_ROLES.includes(projectRole)) return true;
     return false;
   }
-  if (canManageCompany(companyRole)) return true;
+
+  if (canManagePlatform(user, companyRole) || companyRole === "company_admin") return true;
   if (!projectRole) return false;
+
+  if (projectRole === "viewer" || projectRole === "cast_crew_user") return false;
+  if (projectRole === "department_user") return false;
+
   return EDIT_PROJECT_ROLES.includes(projectRole);
 }
 
-export function canReactivateProject(companyRole: CompanyRole): boolean {
-  return canManageCompany(companyRole);
+export function canManageScenesAndSchedule(
+  project: Project,
+  user: User | null,
+  companyRole: CompanyRole,
+  projectRole?: ProjectRole
+): boolean {
+  if (!canEditProject(project, user, companyRole, projectRole)) return false;
+  if (!projectRole) return canManagePlatform(user, companyRole);
+  return SCENE_DAY_CALLSHEET_ROLES.includes(projectRole) || canManagePlatform(user, companyRole);
+}
+
+export function canReactivateProject(user: User | null, companyRole: CompanyRole): boolean {
+  return canManagePlatform(user, companyRole) || companyRole === "company_admin";
 }
 
 export function canViewProject(
   project: Project,
+  user: User | null,
   companyRole: CompanyRole,
-  projectRole?: ProjectRole
+  projectRole?: ProjectRole,
+  projectMembership?: ProjectMember | null,
+  companyMembership?: CompanyMember | null
 ): boolean {
-  if (canManageCompany(companyRole)) return true;
+  if (canManagePlatform(user, companyRole) || companyRole === "company_admin") return true;
+
+  if (projectMembership && !isProjectMembershipActive(projectMembership)) {
+    return false;
+  }
+
+  if (companyMembership?.status === "revoked" || companyMembership?.status === "suspended") {
+    return false;
+  }
+
   if (!projectRole) return false;
+
   if (isProjectRestricted(project.status)) {
     return ADMIN_PROJECT_ROLES.includes(projectRole);
   }
+
   return true;
+}
+
+export function canReadOnlyProject(projectRole?: ProjectRole): boolean {
+  return projectRole === "viewer";
 }
 
 export function canAccessCastCrewView(projectRole?: ProjectRole): boolean {
@@ -110,6 +176,6 @@ export const PROJECT_ROLE_LABELS: Record<ProjectRole, string> = {
   producer: "Producer",
   assistant_director: "Assistant Director",
   department_user: "Department User",
-  cast_crew_user: "Cast/Crew User",
+  cast_crew_user: "Cast/Crew",
   viewer: "Viewer",
 };

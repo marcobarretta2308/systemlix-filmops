@@ -1,6 +1,6 @@
 "use client";
 
-import { useCompany, useProject } from "@/lib/context/PlatformContext";
+import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
 import { cn } from "@/lib/utils/cn";
 import {
   Archive,
@@ -14,6 +14,7 @@ import {
   MapPin,
   Plus,
   ScrollText,
+  Shield,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -66,14 +67,20 @@ function NavItem({
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { activeCompany } = useCompany();
+  const { isPlatformOwner } = useAuth();
+  const { activeCompany, canCreateProject } = useCompany();
   const { activeProject } = useProject();
 
   const platformNav = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
     { href: "/workspaces", label: "Workspace", icon: Building2, exact: true },
     { href: "/projects", label: "Progetti", icon: FolderKanban, exact: true },
-    { href: "/projects/new", label: "Nuovo progetto", icon: Plus, exact: true },
+    ...(canCreateProject
+      ? [{ href: "/projects/new", label: "Nuovo progetto", icon: Plus, exact: true }]
+      : []),
+    ...(isPlatformOwner
+      ? [{ href: "/admin/access", label: "Gestione accessi", icon: Shield, exact: true }]
+      : []),
   ];
 
   const projectLinks = activeProject ? projectNav(activeProject.id) : [];

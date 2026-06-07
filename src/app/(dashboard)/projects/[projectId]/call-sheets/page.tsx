@@ -27,7 +27,7 @@ export default function CallSheetsPage() {
   const { user } = useAuth();
   const {
     shootingDays, locations, scenes, castCrew, callSheets,
-    activeCallSheet, setActiveCallSheet, canEditProject,
+    activeCallSheet, setActiveCallSheet, saveCallSheet, canEditProject,
   } = useProject();
 
   const [selectedDayId, setSelectedDayId] = useState("");
@@ -39,7 +39,7 @@ export default function CallSheetsPage() {
     (localPreview?.project_id === projectId ? localPreview : null) ??
     (activeCallSheet?.project_id === projectId ? activeCallSheet : null);
 
-  const generateCallSheet = () => {
+  const generateCallSheet = async () => {
     const day = shootingDays.find((d) => d.id === effectiveDayId);
     if (!day || !project || !user || !projectId) return;
 
@@ -94,15 +94,33 @@ export default function CallSheetsPage() {
 
     setLocalPreview(generated);
     setActiveCallSheet(generated);
+    const saved = await saveCallSheet(generated);
+    if (saved) {
+      setLocalPreview(saved);
+      setActiveCallSheet(saved);
+    }
     setToast(`Call sheet v${version} generato per ${day.day_number}.`);
   };
 
-  const updateStatus = (status: CallSheetStatus) => {
+  const updateStatus = async (status: CallSheetStatus) => {
     if (!preview) return;
     const updated = { ...preview, status, updated_at: new Date().toISOString() };
     setLocalPreview(updated);
     setActiveCallSheet(updated);
+    await saveCallSheet(updated);
     setToast(`Stato aggiornato: ${STATUS_LABELS[status]}.`);
+  };
+
+  const handleSaveVersion = async () => {
+    if (!preview) return;
+    const saved = await saveCallSheet(preview);
+    if (saved) {
+      setLocalPreview(saved);
+      setActiveCallSheet(saved);
+      setToast(`Call sheet v${saved.version} salvato.`);
+    } else {
+      setToast("Errore nel salvataggio del call sheet.");
+    }
   };
 
   return (
@@ -146,7 +164,7 @@ export default function CallSheetsPage() {
             </Button>
             <Button
               variant="secondary"
-              onClick={() => preview && setActiveCallSheet(preview)}
+              onClick={handleSaveVersion}
               disabled={!preview || !canEditProject}
               className="w-full"
               size="sm"

@@ -31,9 +31,9 @@ export default function SelectCompanyPage() {
     router.push("/dashboard");
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!companyName.trim()) return;
-    const company = createCompany({
+    const company = await createCompany({
       name: companyName.trim(),
       type: companyType,
     });

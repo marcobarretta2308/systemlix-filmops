@@ -1,12 +1,11 @@
 "use client";
 
+import { RequestAccessModal } from "@/components/access/RequestAccessModal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PremiumCard } from "@/components/ui/PremiumCard";
-import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/lib/context/PlatformContext";
-import { DEMO_LOGIN_USERS } from "@/lib/mock-data";
-import { Archive, Bot, Clapperboard, FolderKanban, Shield } from "lucide-react";
+import { Archive, Bot, Clapperboard, FolderKanban, Loader2, Shield } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -19,30 +18,39 @@ const FEATURES = [
 ];
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, isLoading, authReady } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState<string>(DEMO_LOGIN_USERS[1].email);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [requestOpen, setRequestOpen] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const ok = login(email);
-    if (!ok) {
-      setError("Credenziali non valide.");
+    setError("");
+    const result = await login(email.trim(), password);
+    if (result.error) {
+      setError(result.error === "Invalid login credentials" ? "Credenziali non valide." : result.error);
       return;
     }
-    router.push("/select-company");
+    if (result.needsAccessAssignment) {
+      router.push("/no-access");
+      return;
+    }
+    if (result.isPlatformOwner) {
+      router.push("/admin/access");
+      return;
+    }
+    router.push("/dashboard");
   };
 
   return (
     <div className="relative flex min-h-screen overflow-hidden bg-[var(--bg-base)]">
-      {/* Subtle mesh gradient */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-[rgba(139,92,246,0.03)] rounded-full blur-[120px]" />
         <div className="absolute bottom-0 right-1/4 w-[500px] h-[350px] bg-[rgba(34,211,238,0.02)] rounded-full blur-[100px]" />
       </div>
 
-      {/* Left — Brand */}
       <div className="hidden lg:flex lg:w-[55%] flex-col justify-between p-12 xl:p-16 border-r border-[var(--border-subtle)] relative">
         <div className="flex items-center gap-2.5">
           <div className="flex h-7 w-7 items-center justify-center rounded-[8px] bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
@@ -76,7 +84,6 @@ export default function LoginPage() {
         <p className="text-[11px] text-[var(--text-muted)] opacity-60">© 2026 Systemlix</p>
       </div>
 
-      {/* Right — Login */}
       <div className="flex flex-1 items-center justify-center p-6 sm:p-10 relative">
         <div className="w-full max-w-[380px]">
           <div className="mb-8 lg:hidden flex items-center gap-2.5">
@@ -95,20 +102,39 @@ export default function LoginPage() {
             </p>
 
             <form onSubmit={handleLogin} className="mt-6 space-y-4">
-              <Select
-                label="Account demo"
+              <Input
+                label="Email"
+                type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                options={DEMO_LOGIN_USERS.map((u) => ({
-                  value: u.email,
-                  label: u.label,
-                }))}
+                placeholder="nome@produzione.it"
+                required
+                autoComplete="email"
               />
-              <Input label="Email" type="email" value={email} readOnly className="opacity-50" />
-              <Input label="Password" type="password" defaultValue="••••••••" />
+              <Input
+                label="Password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                autoComplete="current-password"
+              />
               {error && <p className="text-[13px] text-[var(--accent-red)]">{error}</p>}
-              <Button type="submit" className="w-full" size="lg">
-                Accedi
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={isLoading || !authReady}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Accesso…
+                  </>
+                ) : (
+                  "Accedi"
+                )}
               </Button>
             </form>
 
@@ -116,17 +142,24 @@ export default function LoginPage() {
               <Link href="#" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors">
                 Password dimenticata?
               </Link>
-              <Link href="#" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors">
+              <button
+                type="button"
+                onClick={() => setRequestOpen(true)}
+                className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+              >
                 Richiedi accesso
-              </Link>
+              </button>
             </div>
 
             <p className="mt-6 text-center text-[11px] text-[var(--text-muted)] leading-relaxed">
               Accesso riservato a team, reparti e produzioni autorizzate.
+              Piattaforma invite-only — nessuna registrazione pubblica.
             </p>
           </PremiumCard>
         </div>
       </div>
+
+      <RequestAccessModal open={requestOpen} onClose={() => setRequestOpen(false)} />
     </div>
   );
 }

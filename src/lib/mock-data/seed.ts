@@ -202,9 +202,9 @@ export function createInitialStore(): PlatformStore {
 
   return {
     users: [
-      { id: IDS.userOwner, email: "owner@systemlix.it", full_name: "Platform Owner", created_at: now },
-      { id: IDS.userAlfa, email: "admin@alfa.it", full_name: "Marco Rossi", created_at: now },
-      { id: IDS.userBeta, email: "admin@beta.it", full_name: "Laura Bianchi", created_at: now },
+      { id: IDS.userOwner, email: "owner@systemlix.it", full_name: "Platform Owner", global_role: "platform_owner" as const, auth_status: "active" as const, created_at: now },
+      { id: IDS.userAlfa, email: "admin@alfa.it", full_name: "Marco Rossi", global_role: "user" as const, auth_status: "active" as const, created_at: now },
+      { id: IDS.userBeta, email: "admin@beta.it", full_name: "Laura Bianchi", global_role: "user" as const, auth_status: "active" as const, created_at: now },
     ],
     companies: [
       { id: IDS.compAlfa, name: "Produzione Alfa", type: "production_house", status: "active", created_at: now },

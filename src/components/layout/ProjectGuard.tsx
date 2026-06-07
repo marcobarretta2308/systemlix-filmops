@@ -1,55 +1,200 @@
 "use client";
 
+import { AccessDenied } from "@/components/access/AccessDenied";
 import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
-import { canViewProject, isProjectRestricted } from "@/lib/permissions";
+import {
+  getAuthDenialReason,
+  hasActiveCompanyAccess,
+  isProjectFinished,
+  isProjectMembershipActive,
+} from "@/lib/access-control";
+import { canViewProject } from "@/lib/permissions";
+import { Loader2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
-const PUBLIC_PATHS = ["/login", "/select-company"];
+const PUBLIC_PATHS = ["/login", "/select-company", "/no-access", "/request-access", "/onboarding"];
+const PLATFORM_ADMIN_PREFIX = "/admin";
+
+/** Platform owner accede anche senza company_members o activeCompany */
+const PLATFORM_OWNER_ALLOWED = [
+  "/dashboard",
+  "/admin",
+  "/workspaces",
+  "/projects",
+  "/select-company",
+];
+
+function isPlatformOwnerPath(pathname: string) {
+  return PLATFORM_OWNER_ALLOWED.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
+}
 
 export function ProjectGuard({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
-  const { activeCompany, companyRole } = useCompany();
-  const { activeProject, projectRole } = useProject();
+  const { user, isAuthenticated, authReady, isPlatformOwner } = useAuth();
+  const {
+    activeCompany,
+    companyRole,
+    userCompanies,
+    isLoading: companyLoading,
+    activeCompanyMembership,
+  } = useCompany();
+  const { activeProject, projectRole, activeProjectMembership } = useProject();
   const router = useRouter();
   const pathname = usePathname();
 
-  const isProjectRoute = pathname.includes("/projects/") && !pathname.endsWith("/projects") && !pathname.endsWith("/projects/new");
+  const isAdminRoute = pathname.startsWith(PLATFORM_ADMIN_PREFIX);
+  const isProjectRoute =
+    pathname.includes("/projects/") &&
+    !pathname.endsWith("/projects") &&
+    !pathname.endsWith("/projects/new");
+
+  const authDenial = getAuthDenialReason(user);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!authReady) return;
+
+    if (!isAuthenticated && !PUBLIC_PATHS.includes(pathname)) {
       router.replace("/login");
       return;
     }
-    if (!activeCompany && !PUBLIC_PATHS.includes(pathname)) {
-      router.replace("/select-company");
+
+    if (isAuthenticated && authDenial && pathname !== "/login") {
+      router.replace("/login");
+      return;
     }
-  }, [isAuthenticated, activeCompany, pathname, router]);
 
-  if (!isAuthenticated) return null;
+    if (isAuthenticated && !companyLoading) {
+      if (isPlatformOwner) {
+        if (pathname === "/no-access") {
+          router.replace("/dashboard");
+        }
+        return;
+      }
 
-  if (!activeCompany && !PUBLIC_PATHS.includes(pathname)) return null;
+      if (userCompanies.length === 0 && pathname !== "/no-access") {
+        router.replace("/no-access");
+        return;
+      }
 
-  if (
-    isProjectRoute &&
-    activeProject &&
-    isProjectRestricted(activeProject.status) &&
-    companyRole &&
-    !canViewProject(activeProject, companyRole, projectRole ?? undefined)
-  ) {
+      if (
+        userCompanies.length > 0 &&
+        !activeCompany &&
+        !PUBLIC_PATHS.includes(pathname) &&
+        !isAdminRoute
+      ) {
+        router.replace("/select-company");
+      }
+    }
+  }, [
+    authReady,
+    isAuthenticated,
+    authDenial,
+    activeCompany,
+    userCompanies.length,
+    companyLoading,
+    pathname,
+    router,
+    isPlatformOwner,
+    isAdminRoute,
+  ]);
+
+  if (!authReady || (isAuthenticated && companyLoading)) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center text-center p-8">
-        <div className="max-w-md rounded-lg border border-red-500/30 bg-red-500/10 p-8">
-          <h2 className="text-xl font-semibold text-red-300">
-            Progetto non accessibile
-          </h2>
-          <p className="mt-3 text-sm text-slate-400">
-            Questo progetto è stato archiviato o bloccato. L&apos;accesso è
-            disabilitato per il tuo ruolo. Contatta un amministratore.
-          </p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg-base)]">
+        <Loader2 className="h-6 w-6 animate-spin text-[var(--text-muted)]" />
       </div>
     );
+  }
+
+  if (!isAuthenticated && !PUBLIC_PATHS.includes(pathname)) return null;
+
+  if (isAuthenticated && authDenial) {
+    return (
+      <AccessDenied
+        message="Il tuo account non è abilitato o l'accesso è stato revocato. Contatta Systemlix."
+      />
+    );
+  }
+
+  if (
+    isAuthenticated &&
+    !isPlatformOwner &&
+    userCompanies.length === 0 &&
+    pathname !== "/no-access"
+  ) {
+    return null;
+  }
+
+  if (isPlatformOwner && pathname === "/no-access") {
+    return null;
+  }
+
+  if (
+    isAuthenticated &&
+    !activeCompany &&
+    !PUBLIC_PATHS.includes(pathname) &&
+    !isAdminRoute &&
+    !(isPlatformOwner && isPlatformOwnerPath(pathname))
+  ) {
+    return null;
+  }
+
+  if (isAdminRoute && !isPlatformOwner) {
+    return (
+      <AccessDenied message="Questa sezione è riservata al Platform Owner Systemlix." />
+    );
+  }
+
+  if (
+    activeCompany &&
+    user &&
+    !isPlatformOwner &&
+    companyRole !== "platform_owner" &&
+    companyRole !== "company_admin" &&
+    activeCompanyMembership &&
+    !hasActiveCompanyAccess([activeCompanyMembership], activeCompany.id)
+  ) {
+    return (
+      <AccessDenied message="Il tuo account non è abilitato per questa produzione o l'accesso è stato revocato." />
+    );
+  }
+
+  if (isProjectRoute && activeProject && user && companyRole) {
+    const canView = canViewProject(
+      activeProject,
+      user,
+      companyRole,
+      projectRole ?? undefined,
+      activeProjectMembership ?? undefined,
+      activeCompanyMembership ?? undefined
+    );
+
+    if (!canView) {
+      if (isProjectFinished(activeProject.status)) {
+        return (
+          <AccessDenied
+            title="Progetto archiviato"
+            message="Questo progetto è stato archiviato. Contatta Systemlix per riattivare l'accesso."
+          />
+        );
+      }
+      return (
+        <AccessDenied message="Il tuo account non è abilitato per questo progetto o l'accesso è stato revocato." />
+      );
+    }
+
+    if (
+      activeProjectMembership &&
+      !isProjectMembershipActive(activeProjectMembership) &&
+      !isPlatformOwner &&
+      companyRole !== "company_admin"
+    ) {
+      return (
+        <AccessDenied message="Il tuo account non è abilitato per questo progetto o l'accesso è stato revocato." />
+      );
+    }
   }
 
   return <>{children}</>;

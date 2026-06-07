@@ -22,11 +22,13 @@ import { Archive, AlertTriangle, Download, Lock, RotateCcw } from "lucide-react"
 import { useState } from "react";
 
 const ACTION_LABELS: Record<string, string> = {
-  archived: "Archiviato",
-  locked: "Bloccato",
-  completed: "Completato",
-  exported: "Export dati",
-  unlocked: "Riattivato",
+  project_archived: "Progetto archiviato",
+  project_locked: "Progetto bloccato",
+  access_revoked: "Accessi revocati",
+  user_suspended: "Utente sospeso",
+  user_reactivated: "Utente riattivato",
+  project_exported: "Export dati",
+  project_reactivated: "Progetto riattivato",
 };
 
 export default function ArchivePage() {
@@ -44,22 +46,22 @@ export default function ArchivePage() {
 
   if (!project) return <p className="text-[13px] text-[var(--text-muted)]">Progetto non trovato.</p>;
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!modalAction) return;
-    if (modalAction === "exported") {
-      archiveProject("exported", "Export richiesto");
+    if (modalAction === "project_exported") {
+      await archiveProject("project_exported", "Export richiesto");
       setToast("Esportazione dati progetto — pronta per integrazione backend.");
     } else {
-      archiveProject(modalAction);
-      if (["archived", "locked", "completed"].includes(modalAction)) {
+      await archiveProject(modalAction);
+      if (["project_archived", "project_locked"].includes(modalAction)) {
         setToast("Progetto aggiornato. Gli accessi operativi sono disabilitati per i non admin.");
       }
     }
     setModalAction(null);
   };
 
-  const handleReactivate = () => {
-    reactivateProject();
+  const handleReactivate = async () => {
+    await reactivateProject();
     setToast("Progetto riattivato con successo.");
   };
 
@@ -99,7 +101,7 @@ export default function ArchivePage() {
                 <p className="text-[12px] text-[var(--text-muted)] mt-1 leading-relaxed">
                   Richiedi export completo del progetto.
                 </p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={() => setModalAction("exported")}>
+                <Button variant="outline" size="sm" className="mt-3" onClick={() => setModalAction("project_exported")}>
                   Esporta
                 </Button>
               </div>
@@ -119,7 +121,7 @@ export default function ArchivePage() {
                   size="sm"
                   className="mt-3"
                   disabled={!canArchiveProject}
-                  onClick={() => setModalAction("archived")}
+                  onClick={() => setModalAction("project_archived")}
                 >
                   Archivia
                 </Button>
@@ -140,7 +142,7 @@ export default function ArchivePage() {
                   size="sm"
                   className="mt-3"
                   disabled={!canArchiveProject}
-                  onClick={() => setModalAction("locked")}
+                  onClick={() => setModalAction("project_locked")}
                 >
                   Blocca
                 </Button>
@@ -204,7 +206,7 @@ export default function ArchivePage() {
         </p>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => setModalAction(null)}>Annulla</Button>
-          <Button variant={modalAction === "locked" ? "danger" : "primary"} onClick={handleConfirm}>
+          <Button variant={modalAction === "project_locked" ? "danger" : "primary"} onClick={handleConfirm}>
             Conferma
           </Button>
         </div>
