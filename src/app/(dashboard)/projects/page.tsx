@@ -12,13 +12,24 @@ import {
   TableTd,
   TableTh,
 } from "@/components/ui/Table";
-import { useCompany, useProject } from "@/lib/context/PlatformContext";
+import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
 import { FolderKanban, Plus } from "lucide-react";
 import Link from "next/link";
 
 export default function ProjectsPage() {
-  const { activeCompany, activeWorkspace, canCreateProject } = useCompany();
+  const { isPlatformOwner } = useAuth();
+  const {
+    activeCompany,
+    activeWorkspace,
+    canCreateProject,
+    needsPlatformSetup,
+  } = useCompany();
   const { accessibleProjects, setActiveProject } = useProject();
+
+  const newProjectHref =
+    needsPlatformSetup && isPlatformOwner
+      ? "/platform-setup?step=project"
+      : "/projects/new";
 
   const filtered = activeWorkspace
     ? accessibleProjects.filter((p) => p.workspace_id === activeWorkspace.id)
@@ -35,7 +46,7 @@ export default function ProjectsPage() {
         }
         actions={
           canCreateProject && (
-            <Link href="/projects/new">
+            <Link href={newProjectHref}>
               <Button size="sm">
                 <Plus className="h-4 w-4" />
                 Crea nuovo progetto
@@ -52,7 +63,7 @@ export default function ProjectsPage() {
           description="Crea il primo progetto in questo workspace per iniziare."
           action={
             canCreateProject && (
-              <Link href="/projects/new">
+              <Link href={newProjectHref}>
                 <Button size="sm">Crea nuovo progetto</Button>
               </Link>
             )

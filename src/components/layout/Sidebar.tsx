@@ -68,15 +68,21 @@ function NavItem({
 export function Sidebar() {
   const pathname = usePathname();
   const { isPlatformOwner } = useAuth();
-  const { activeCompany, canCreateProject } = useCompany();
+  const { activeCompany, canCreateProject, needsPlatformSetup, isLoading } = useCompany();
   const { activeProject } = useProject();
+
+  const newProjectHref =
+    needsPlatformSetup && isPlatformOwner ? "/platform-setup?step=project" : "/projects/new";
 
   const platformNav = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
+    ...(needsPlatformSetup && isPlatformOwner
+      ? [{ href: "/platform-setup", label: "Platform Setup", icon: Plus, exact: true }]
+      : []),
     { href: "/workspaces", label: "Workspace", icon: Building2, exact: true },
     { href: "/projects", label: "Progetti", icon: FolderKanban, exact: true },
     ...(canCreateProject
-      ? [{ href: "/projects/new", label: "Nuovo progetto", icon: Plus, exact: true }]
+      ? [{ href: newProjectHref, label: "Nuovo progetto", icon: Plus, exact: true }]
       : []),
     ...(isPlatformOwner
       ? [{ href: "/admin/access", label: "Gestione accessi", icon: Shield, exact: true }]
@@ -165,7 +171,10 @@ export function Sidebar() {
       <div className="border-t border-[var(--border-subtle)] px-4 py-3 shrink-0">
         <p className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)]">Produzione attiva</p>
         <p className="mt-1 text-[12px] text-[var(--text-secondary)] truncate" title={activeCompany?.name}>
-          {activeCompany?.name ?? "—"}
+          {activeCompany?.name ??
+            (needsPlatformSetup && isPlatformOwner && !isLoading
+              ? "Configura produzione"
+              : "—")}
         </p>
       </div>
     </aside>

@@ -67,8 +67,27 @@ interface CompanyContextValue {
   companyWorkspaces: Workspace[];
   setActiveCompany: (companyId: string) => void;
   setActiveWorkspace: (workspaceId: string) => void;
-  createCompany: (data: { name: string; type: string }) => Promise<Company | null>;
+  createCompany: (data: {
+    name: string;
+    type: string;
+    status?: Company["status"];
+  }) => Promise<Company | null>;
   createWorkspace: (data: { name: string; description?: string }) => Promise<Workspace | null>;
+  runPlatformSetup: (data: {
+    company?: { name: string; type: string; status?: Company["status"] };
+    companyId?: string;
+    workspace?: { name: string; description?: string };
+    workspaceId?: string;
+    project: {
+      title: string;
+      production_type: string;
+      description?: string;
+      status: ProjectStatus;
+      start_date?: string;
+      end_date?: string;
+    };
+  }) => Promise<{ project: Project | null; error?: string }>;
+  needsPlatformSetup: boolean;
   canManageCompany: boolean;
   canCreateWorkspace: boolean;
   canCreateProject: boolean;
@@ -161,6 +180,7 @@ interface AuthContextValue {
     error?: string;
     needsAccessAssignment?: boolean;
     isPlatformOwner?: boolean;
+    needsPlatformSetup?: boolean;
   }>;
   logout: () => Promise<void>;
   isPlatformOwner: boolean;
@@ -314,10 +334,14 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   );
 
   const loadCompanyData = useCallback(
-    async (userId: string, profile: User): Promise<Company[]> => {
-      if (!supabase) return [];
+    async (
+      userId: string,
+      profile: User
+    ): Promise<{ companies: Company[]; needsPlatformSetup: boolean }> => {
+      if (!supabase) return { companies: [], needsPlatformSetup: false };
       setCompanyLoading(true);
       let result: Company[] = [];
+      let needsSetup = false;
       const owner = isPlatformOwnerUser(profile);
 
       updateAccessDebug({
@@ -377,11 +401,19 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
                 : null;
             setActiveProjectId(validProj);
             setStoredProjectId(validProj);
+
+            if (owner) {
+              needsSetup =
+                boot.companies.length === 0 ||
+                companyWs.length === 0 ||
+                companyProjs.length === 0;
+            }
           } else {
             setActiveWorkspaceId(null);
             setActiveProjectId(null);
             setStoredWorkspaceId(null);
             setStoredProjectId(null);
+            if (owner) needsSetup = boot.companies.length === 0;
           }
         } else {
           const { companies: comps, memberships } = await db.fetchUserCompanies(
@@ -458,11 +490,12 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         updateAccessDebug({ lastError: message });
         if (owner) {
           result = [];
+          needsSetup = true;
         }
       } finally {
         setCompanyLoading(false);
       }
-      return result;
+      return { companies: result, needsPlatformSetup: needsSetup };
     },
     [supabase, updateAccessDebug]
   );
@@ -689,6 +722,22 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     [projects, activeProjectId]
   );
 
+  const needsPlatformSetup = useMemo(() => {
+    if (!isPlatformOwner || companyLoading) return false;
+    if (companies.length === 0) return true;
+    if (!activeCompanyId) return true;
+    if (companyWorkspaces.length === 0) return true;
+    const companyProjects = projects.filter((p) => p.company_id === activeCompanyId);
+    return companyProjects.length === 0;
+  }, [
+    isPlatformOwner,
+    companyLoading,
+    companies.length,
+    activeCompanyId,
+    companyWorkspaces.length,
+    projects,
+  ]);
+
   const projectRole = useMemo((): ProjectRole | null => {
     if (!activeProjectId) return null;
     if (isPlatformOwner || companyRole === "platform_owner" || companyRole === "company_admin") {
@@ -778,11 +827,12 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
             return { error: "Account non abilitato. Contatta Systemlix." };
           }
           setUser(profile);
-          const comps = await loadCompanyData(data.user.id, profile);
+          const boot = await loadCompanyData(data.user.id, profile);
           const owner = isPlatformOwnerUser(profile);
           return {
-            needsAccessAssignment: !owner && comps.length === 0,
+            needsAccessAssignment: !owner && boot.companies.length === 0,
             isPlatformOwner: owner,
+            needsPlatformSetup: boot.needsPlatformSetup,
           };
         }
         return {};
@@ -868,14 +918,71 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   );
 
   const createCompany = useCallback(
-    async (data: { name: string; type: string }) => {
+    async (data: { name: string; type: string; status?: Company["status"] }) => {
       if (!supabase || !currentUserId || !isPlatformOwnerUser(user)) return null;
       try {
-        const company = await db.createCompanyRecord(supabase, currentUserId, data);
+        const { company, membership } = await db.createCompanyRecord(
+          supabase,
+          currentUserId,
+          data
+        );
         setCompanies((prev) => [...prev, company]);
+        setCompanyMembers((prev) => [...prev, membership]);
+        setActiveCompanyId(company.id);
+        setStoredCompanyId(company.id);
         return company;
       } catch {
         return null;
+      }
+    },
+    [currentUserId, user, supabase]
+  );
+
+  const runPlatformSetup = useCallback(
+    async (data: {
+      company?: { name: string; type: string; status?: Company["status"] };
+      companyId?: string;
+      workspace?: { name: string; description?: string };
+      workspaceId?: string;
+      project: {
+        title: string;
+        production_type: string;
+        description?: string;
+        status: ProjectStatus;
+        start_date?: string;
+        end_date?: string;
+      };
+    }) => {
+      if (!supabase || !currentUserId || !isPlatformOwnerUser(user)) {
+        return { project: null, error: "Permessi insufficienti" };
+      }
+      try {
+        const result = await db.createPlatformSetup(supabase, currentUserId, data);
+        setCompanies((prev) => {
+          if (prev.some((c) => c.id === result.company.id)) return prev;
+          return [...prev, result.company];
+        });
+        setCompanyMembers((prev) => {
+          if (prev.some((m) => m.id === result.companyMember.id)) return prev;
+          return [...prev, result.companyMember];
+        });
+        setWorkspaces((prev) => {
+          if (prev.some((w) => w.id === result.workspace.id)) return prev;
+          return [...prev, result.workspace];
+        });
+        setProjects((prev) => [...prev, result.project]);
+        setProjectMembers((prev) => [...prev, result.projectMember]);
+        setActiveCompanyId(result.company.id);
+        setStoredCompanyId(result.company.id);
+        setActiveWorkspaceId(result.workspace.id);
+        setStoredWorkspaceId(result.workspace.id);
+        setActiveProjectId(result.project.id);
+        setStoredProjectId(result.project.id);
+        return { project: result.project };
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Errore durante la configurazione";
+        return { project: null, error: message };
       }
     },
     [currentUserId, user, supabase]
@@ -1287,13 +1394,21 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setActiveWorkspace,
       createCompany,
       createWorkspace,
-      canManageCompany: companyRole ? canManageCompany(companyRole) : false,
-      canCreateWorkspace: companyRole
-        ? canCreateWorkspace(user, companyRole)
-        : false,
-      canCreateProject: companyRole
-        ? canCreateProject(user, companyRole)
-        : false,
+      runPlatformSetup,
+      needsPlatformSetup,
+      canManageCompany: companyRole
+        ? canManageCompany(companyRole)
+        : isPlatformOwner,
+      canCreateWorkspace: isPlatformOwner
+        ? true
+        : companyRole
+          ? canCreateWorkspace(user, companyRole)
+          : false,
+      canCreateProject: isPlatformOwner
+        ? true
+        : companyRole
+          ? canCreateProject(user, companyRole)
+          : false,
       canManagePlatform: canManagePlatform(user, companyRole),
       isLoading: companyLoading,
       activeCompanyMembership,
@@ -1308,6 +1423,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setActiveWorkspace,
       createCompany,
       createWorkspace,
+      runPlatformSetup,
+      needsPlatformSetup,
+      isPlatformOwner,
       user,
       companyLoading,
       activeCompanyMembership,

@@ -23,6 +23,7 @@ const PLATFORM_OWNER_ALLOWED = [
   "/workspaces",
   "/projects",
   "/select-company",
+  "/platform-setup",
 ];
 
 function isPlatformOwnerPath(pathname: string) {

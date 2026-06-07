@@ -37,8 +37,8 @@ export default function LoginPage() {
       router.push("/no-access");
       return;
     }
-    if (result.isPlatformOwner) {
-      router.push("/admin/access");
+    if (result.needsPlatformSetup) {
+      router.push("/platform-setup");
       return;
     }
     router.push("/dashboard");

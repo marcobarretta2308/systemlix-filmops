@@ -436,24 +436,148 @@ export async function createOnboardingProduction(
 export async function createCompanyRecord(
   supabase: SupabaseClient,
   userId: string,
-  data: { name: string; type: string }
-): Promise<Company> {
+  data: { name: string; type: string; status?: Company["status"] }
+): Promise<{ company: Company; membership: CompanyMember }> {
   const { data: row, error } = await supabase
     .from("companies")
-    .insert({ name: data.name, type: data.type, status: "active" })
+    .insert({
+      name: data.name,
+      type: data.type,
+      status: data.status ?? "active",
+    })
     .select()
     .single();
   if (error) throw error;
 
-  await supabase.from("company_members").insert({
-    company_id: row.id,
-    user_id: userId,
-    role: "company_admin",
-    status: "active",
-    joined_at: new Date().toISOString(),
+  const { data: memberRow, error: mErr } = await supabase
+    .from("company_members")
+    .insert({
+      company_id: row.id,
+      user_id: userId,
+      role: "company_admin",
+      status: "active",
+      joined_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+  if (mErr) throw mErr;
+
+  return {
+    company: mapCompany(row),
+    membership: mapCompanyMember(memberRow),
+  };
+}
+
+export async function createPlatformSetup(
+  supabase: SupabaseClient,
+  userId: string,
+  input: {
+    company?: { name: string; type: string; status?: Company["status"] };
+    companyId?: string;
+    workspace?: { name: string; description?: string };
+    workspaceId?: string;
+    project: {
+      title: string;
+      production_type: string;
+      description?: string;
+      status: ProjectStatus;
+      start_date?: string;
+      end_date?: string;
+    };
+  }
+): Promise<{
+  company: Company;
+  companyMember: CompanyMember;
+  workspace: Workspace;
+  project: Project;
+  projectMember: ProjectMember;
+}> {
+  let company: Company;
+  let companyMember: CompanyMember;
+
+  if (input.companyId) {
+    const { data: companyRow, error: cErr } = await supabase
+      .from("companies")
+      .select("*")
+      .eq("id", input.companyId)
+      .single();
+    if (cErr) throw cErr;
+    company = mapCompany(companyRow);
+
+    const { data: memberRow, error: mErr } = await supabase
+      .from("company_members")
+      .select("*")
+      .eq("company_id", input.companyId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (mErr) throw mErr;
+
+    if (memberRow) {
+      companyMember = mapCompanyMember(memberRow);
+    } else {
+      const { data: inserted, error: insErr } = await supabase
+        .from("company_members")
+        .insert({
+          company_id: input.companyId,
+          user_id: userId,
+          role: "company_admin",
+          status: "active",
+          joined_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+      if (insErr) throw insErr;
+      companyMember = mapCompanyMember(inserted);
+    }
+  } else if (input.company) {
+    const created = await createCompanyRecord(supabase, userId, input.company);
+    company = created.company;
+    companyMember = created.membership;
+  } else {
+    throw new Error("Produzione mancante per il setup iniziale");
+  }
+
+  let workspace: Workspace;
+  if (input.workspaceId) {
+    const { data: wsRow, error: wErr } = await supabase
+      .from("workspaces")
+      .select("*")
+      .eq("id", input.workspaceId)
+      .single();
+    if (wErr) throw wErr;
+    workspace = mapWorkspace(wsRow);
+  } else if (input.workspace) {
+    workspace = await createWorkspaceRecord(supabase, company.id, input.workspace);
+  } else {
+    throw new Error("Workspace mancante per il setup iniziale");
+  }
+
+  const project = await createProjectRecord(supabase, userId, {
+    company_id: company.id,
+    workspace_id: workspace.id,
+    title: input.project.title,
+    production_type: input.project.production_type,
+    description: input.project.description,
+    status: input.project.status,
+    start_date: input.project.start_date,
+    end_date: input.project.end_date,
   });
 
-  return mapCompany(row);
+  const { data: projectMemberRow, error: pmErr } = await supabase
+    .from("project_members")
+    .select("*")
+    .eq("project_id", project.id)
+    .eq("user_id", userId)
+    .single();
+  if (pmErr) throw pmErr;
+
+  return {
+    company,
+    companyMember,
+    workspace,
+    project,
+    projectMember: mapProjectMember(projectMemberRow),
+  };
 }
 
 export async function createWorkspaceRecord(
@@ -505,12 +629,13 @@ export async function createProjectRecord(
     .single();
   if (error) throw error;
 
-  await supabase.from("project_members").insert({
+  const { error: pmErr } = await supabase.from("project_members").insert({
     project_id: row.id,
     user_id: userId,
     role: "project_admin",
     access_status: "active",
   });
+  if (pmErr) throw pmErr;
 
   return mapProject(row);
 }

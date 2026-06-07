@@ -6,14 +6,24 @@ import { Input } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import { useCompany, useProject } from "@/lib/context/PlatformContext";
+import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function NewProjectPage() {
-  const { companyWorkspaces, activeWorkspace, canCreateProject } = useCompany();
+  const { isPlatformOwner } = useAuth();
+  const { companyWorkspaces, activeWorkspace, canCreateProject, needsPlatformSetup } =
+    useCompany();
   const { createProject } = useProject();
   const router = useRouter();
+
+  useEffect(() => {
+    if (needsPlatformSetup && isPlatformOwner) {
+      router.replace("/platform-setup?step=project");
+    } else if (companyWorkspaces.length === 0 && canCreateProject) {
+      router.replace(isPlatformOwner ? "/platform-setup?step=workspace" : "/workspaces");
+    }
+  }, [needsPlatformSetup, isPlatformOwner, companyWorkspaces.length, canCreateProject, router]);
 
   const [title, setTitle] = useState("");
   const [productionType, setProductionType] = useState("Film");

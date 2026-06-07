@@ -1,6 +1,6 @@
 "use client";
 
-import { useCompany } from "@/lib/context/PlatformContext";
+import { useAuth, useCompany } from "@/lib/context/PlatformContext";
 import { useRouter } from "next/navigation";
 
 interface CompanySwitcherProps {
@@ -8,8 +8,25 @@ interface CompanySwitcherProps {
 }
 
 export function CompanySwitcher({ showWorkspace = true }: CompanySwitcherProps) {
-  const { activeCompany, activeWorkspace } = useCompany();
+  const { isPlatformOwner } = useAuth();
+  const { activeCompany, activeWorkspace, needsPlatformSetup } = useCompany();
   const router = useRouter();
+
+  if (needsPlatformSetup && isPlatformOwner) {
+    return (
+      <button
+        onClick={() => router.push("/platform-setup")}
+        className="group flex min-w-[180px] flex-col text-left rounded-[var(--radius-sm)] border border-[rgba(34,211,238,0.2)] bg-[rgba(34,211,238,0.04)] px-3 py-2 transition-colors hover:border-[rgba(34,211,238,0.35)]"
+      >
+        <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--accent-cyan)]">
+          Platform Setup
+        </span>
+        <span className="mt-0.5 text-[13px] text-[var(--text-primary)]">
+          Configura la prima produzione
+        </span>
+      </button>
+    );
+  }
 
   return (
     <div className="flex items-end gap-5 min-w-0">
@@ -22,7 +39,7 @@ export function CompanySwitcher({ showWorkspace = true }: CompanySwitcherProps) 
           Produzione
         </span>
         <span className="mt-0.5 text-[13px] text-[var(--text-secondary)] truncate">
-          {activeCompany?.name ?? "—"}
+          {activeCompany?.name ?? "Seleziona produzione"}
         </span>
       </button>
 

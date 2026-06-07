@@ -1,5 +1,6 @@
 "use client";
 
+import { PlatformSetupPrompt } from "@/components/platform/PlatformSetupPrompt";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PremiumCard } from "@/components/ui/PremiumCard";
@@ -17,8 +18,21 @@ export default function DashboardPage() {
     canCreateWorkspace,
     canCreateProject,
     canManagePlatform,
+    needsPlatformSetup,
   } = useCompany();
   const { accessibleProjects, activeProject } = useProject();
+
+  if (needsPlatformSetup) {
+    return (
+      <div className="space-y-8">
+        <PageHeader
+          title="Dashboard"
+          description="Configura la piattaforma per iniziare"
+        />
+        <PlatformSetupPrompt />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
