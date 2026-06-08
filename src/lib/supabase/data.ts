@@ -31,6 +31,7 @@ import {
   mapScene,
   mapShootingDay,
   mapWorkspace,
+  sceneToInsertRow,
   sceneToRow,
 } from "./mappers";
 
@@ -751,14 +752,65 @@ export async function addArchiveLogRecord(
   return mapArchiveLog(data);
 }
 
+export async function ensureProjectEditorAccess(
+  supabase: SupabaseClient,
+  userId: string,
+  projectId: string
+): Promise<void> {
+  const { data: project, error: pErr } = await supabase
+    .from("projects")
+    .select("company_id")
+    .eq("id", projectId)
+    .single();
+  if (pErr) throw pErr;
+
+  const { data: companyMember } = await supabase
+    .from("company_members")
+    .select("id")
+    .eq("company_id", project.company_id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!companyMember) {
+    const { error: cmErr } = await supabase.from("company_members").insert({
+      company_id: project.company_id,
+      user_id: userId,
+      role: "company_admin",
+      status: "active",
+      joined_at: new Date().toISOString(),
+    });
+    if (cmErr) throw cmErr;
+  }
+
+  const { data: projectMember } = await supabase
+    .from("project_members")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!projectMember) {
+    const { error: pmErr } = await supabase.from("project_members").insert({
+      project_id: projectId,
+      user_id: userId,
+      role: "project_admin",
+      access_status: "active",
+    });
+    if (pmErr) throw pmErr;
+  }
+}
+
 export async function insertScenes(
   supabase: SupabaseClient,
   scenes: Omit<Scene, "id" | "created_at" | "updated_at">[]
 ): Promise<Scene[]> {
   if (scenes.length === 0) return [];
-  const rows = scenes.map((s) => sceneToRow(s));
+  const rows = scenes.map((s) => sceneToInsertRow(s));
   const { data, error } = await supabase.from("scenes").insert(rows).select();
-  if (error) throw error;
+  if (error) {
+    console.error("[FilmOps] insertScenes error:", error);
+    throw error;
+  }
   return (data ?? []).map(mapScene);
 }
 

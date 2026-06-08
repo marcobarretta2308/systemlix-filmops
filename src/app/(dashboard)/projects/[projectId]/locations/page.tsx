@@ -13,7 +13,7 @@ import { Car, ExternalLink, FileText, KeyRound, MapPin, Plus } from "lucide-reac
 import { useState } from "react";
 
 export default function LocationsPage() {
-  useSyncProjectFromUrl();
+  const { isProjectReady } = useSyncProjectFromUrl();
   const { locations, addLocation, canEditProject } = useProject();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -34,6 +34,16 @@ export default function LocationsPage() {
     setOpen(false);
     setForm({ name: "", address: "", maps_link: "https://maps.google.com/", parking_notes: "", access_notes: "", production_notes: "" });
   };
+
+  if (!isProjectReady) {
+    return (
+      <EmptyState
+        icon={MapPin}
+        title="Nessun progetto attivo"
+        description="Seleziona un progetto per gestire le location."
+      />
+    );
+  }
 
   return (
     <div>

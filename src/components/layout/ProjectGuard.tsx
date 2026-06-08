@@ -33,7 +33,8 @@ function isPlatformOwnerPath(pathname: string) {
 }
 
 export function ProjectGuard({ children }: { children: ReactNode }) {
-  const { user, isAuthenticated, authReady, isPlatformOwner } = useAuth();
+  const { user, isAuthenticated, authReady, profileLoading, isPlatformOwner } =
+    useAuth();
   const {
     activeCompany,
     companyRole,
@@ -61,12 +62,12 @@ export function ProjectGuard({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (isAuthenticated && authDenial && pathname !== "/login") {
+    if (isAuthenticated && user && authDenial && pathname !== "/login") {
       router.replace("/login");
       return;
     }
 
-    if (isAuthenticated && !companyLoading) {
+    if (isAuthenticated && user && !companyLoading) {
       if (isPlatformOwner) {
         if (pathname === "/no-access") {
           router.replace("/dashboard");
@@ -101,7 +102,7 @@ export function ProjectGuard({ children }: { children: ReactNode }) {
     isAdminRoute,
   ]);
 
-  if (!authReady || (isAuthenticated && companyLoading)) {
+  if (!authReady || profileLoading || (isAuthenticated && companyLoading)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--bg-base)]">
         <Loader2 className="h-6 w-6 animate-spin text-[var(--text-muted)]" />
@@ -111,7 +112,19 @@ export function ProjectGuard({ children }: { children: ReactNode }) {
 
   if (!isAuthenticated && !PUBLIC_PATHS.includes(pathname)) return null;
 
-  if (isAuthenticated && authDenial) {
+  if (
+    authReady &&
+    !profileLoading &&
+    isAuthenticated &&
+    !user &&
+    !PUBLIC_PATHS.includes(pathname)
+  ) {
+    return (
+      <AccessDenied message="Sessione attiva ma profilo non configurato. Contatta Systemlix o verifica public.profiles." />
+    );
+  }
+
+  if (isAuthenticated && user && authDenial) {
     return (
       <AccessDenied
         message="Il tuo account non è abilitato o l'accesso è stato revocato. Contatta Systemlix."

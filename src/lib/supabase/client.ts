@@ -1,12 +1,11 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseAnonKey, getSupabaseUrl, isSupabaseEnvConfigured } from "./env";
 
 let browserClient: SupabaseClient | null = null;
 
 export function isSupabaseConfigured() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  return Boolean(url && key && /^https?:\/\//i.test(url));
+  return isSupabaseEnvConfigured();
 }
 
 export function createClient(): SupabaseClient {
@@ -16,16 +15,23 @@ export function createClient(): SupabaseClient {
 
   if (browserClient) return browserClient;
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = getSupabaseUrl();
+  const key = getSupabaseAnonKey();
 
-  if (!url || !key || !/^https?:\/\//i.test(url)) {
+  if (!url || !key) {
     throw new Error(
-      "Supabase non configurato. Imposta NEXT_PUBLIC_SUPABASE_URL (https://...) e NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local"
+      "Supabase non configurato. Imposta NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY (o NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) in .env.local"
     );
   }
 
-  browserClient = createBrowserClient(url, key);
+  browserClient = createBrowserClient(url, key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
+
   return browserClient;
 }
 

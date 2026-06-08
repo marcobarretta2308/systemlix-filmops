@@ -24,7 +24,7 @@ const ROLE_OPTIONS: { value: SetAssistantRole; label: string }[] = [
 ];
 
 export default function SetAssistantPage() {
-  const { project } = useSyncProjectFromUrl();
+  const { project, isProjectReady } = useSyncProjectFromUrl();
   const {
     scenes, shootingDays, activeCallSheet, locations, castCrew,
     assistantRole, setAssistantRole,
@@ -59,6 +59,16 @@ export default function SetAssistantPage() {
     { icon: MapPin, label: "Location", value: locations.length },
     { icon: Calendar, label: "Giornate", value: shootingDays.length },
   ];
+
+  if (!isProjectReady) {
+    return (
+      <EmptyState
+        icon={Bot}
+        title="Nessun progetto attivo"
+        description="Seleziona un progetto per usare Set Assistant."
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-[560px] max-h-[calc(100vh-120px)]">

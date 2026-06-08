@@ -8,7 +8,7 @@ interface ToastProps {
   message: string;
   open: boolean;
   onClose: () => void;
-  variant?: "info" | "success" | "warning";
+  variant?: "info" | "success" | "warning" | "error";
   duration?: number;
 }
 
@@ -31,6 +31,7 @@ export function Toast({
     info: "border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--text-secondary)]",
     success: "border-[rgba(52,211,153,0.15)] bg-[var(--bg-surface-2)] text-[var(--accent-green)]",
     warning: "border-[rgba(245,158,11,0.15)] bg-[var(--bg-surface-2)] text-[var(--accent-amber)]",
+    error: "border-[rgba(248,113,113,0.2)] bg-[var(--bg-surface-2)] text-red-400",
   };
 
   return (

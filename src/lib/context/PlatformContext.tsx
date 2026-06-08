@@ -37,8 +37,9 @@ import type {
   Workspace,
 } from "@/lib/types";
 import { getClientOrNull } from "@/lib/supabase/client";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import * as db from "@/lib/supabase/data";
+import { formatSupabaseError } from "@/lib/supabase/errors";
 import {
   clearStoredSession,
   getStoredCompanyId,
@@ -118,7 +119,8 @@ interface ProjectContextValue {
   addScene: (scene: Omit<Scene, "id" | "created_at" | "updated_at">) => Promise<Scene | null>;
   deleteScene: (sceneId: string) => Promise<void>;
   addCastCrewMember: (
-    member: Omit<CastCrew, "id" | "created_at" | "project_id">
+    member: Omit<CastCrew, "id" | "created_at" | "project_id">,
+    projectId?: string
   ) => Promise<CastCrew | null>;
   addLocation: (
     location: Omit<Location, "id" | "created_at" | "project_id">
@@ -127,7 +129,10 @@ interface ProjectContextValue {
     day: Omit<ShootingDay, "id" | "created_at" | "project_id">
   ) => Promise<ShootingDay | null>;
   saveCallSheet: (sheet: CallSheet) => Promise<CallSheet | null>;
-  saveBreakdownToProject: () => Promise<number>;
+  saveBreakdownToProject: (
+    scenes: Scene[],
+    projectId?: string
+  ) => Promise<{ saved: number; error: string | null }>;
   canEditProject: boolean;
   canReactivateProject: boolean;
   canViewProject: boolean;
@@ -170,8 +175,10 @@ export interface AccessDebugInfo {
 // --- Auth ---
 interface AuthContextValue {
   user: User | null;
+  session: Session | null;
   isAuthenticated: boolean;
   authReady: boolean;
+  profileLoading: boolean;
   isLoading: boolean;
   login: (
     email: string,
@@ -285,8 +292,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const [user, setUser] = useState<User | null>(null);
-  const [authReady, setAuthReady] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
+  const authReady = !authChecking;
   const [companyLoading, setCompanyLoading] = useState(false);
   const [projectDataLoading, setProjectDataLoading] = useState(false);
 
@@ -540,83 +550,135 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     [supabase]
   );
 
-  const initAuth = useCallback(async () => {
-    if (!supabase) {
-      setAuthReady(true);
-      return;
-    }
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.user) {
-        const resolved = await resolveSessionProfile(supabase, session.user);
-        if (resolved.ok && !getAuthDenialReason(resolved.profile)) {
-          setUser(resolved.profile);
-          await loadCompanyData(session.user.id, resolved.profile);
-        } else if (!resolved.ok) {
-          updateAccessDebug({
-            authUserId: session.user.id,
-            email: session.user.email ?? null,
-            profileFound: resolved.profileFound,
-            lastError: resolved.error,
-          });
-        }
-      }
-    } finally {
-      setAuthReady(true);
-    }
-  }, [supabase, loadCompanyData, updateAccessDebug]);
+  const clearAuthState = useCallback(() => {
+    setUser(null);
+    setCompanies([]);
+    setCompanyMembers([]);
+    setWorkspaces([]);
+    setProjects([]);
+    setProjectMembers([]);
+    setScenesState([]);
+    setCastCrewState([]);
+    setLocations([]);
+    setShootingDaysState([]);
+    setCallSheetsState([]);
+    setArchiveLogs([]);
+    setActiveCompanyId(null);
+    setActiveWorkspaceId(null);
+    setActiveProjectId(null);
+    clearStoredSession();
+  }, []);
+
+  const logAuthDebug = useCallback(
+    (event: string, nextSession: Session | null) => {
+      if (process.env.NODE_ENV !== "development") return;
+      console.log(
+        `[FilmOps Auth] ${event} — session found: ${!!nextSession}, user id: ${nextSession?.user?.id ?? "none"}`
+      );
+    },
+    []
+  );
 
   useEffect(() => {
     if (!supabase) {
-      setAuthReady(true);
+      setAuthChecking(false);
       return;
     }
-    initAuth();
+
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      if (!mounted) return;
+      logAuthDebug("getSession", initialSession);
+      setSession(initialSession);
+      setAuthChecking(false);
+    });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      logAuthDebug(`onAuthStateChange:${event}`, nextSession);
+
       if (event === "SIGNED_OUT") {
-        setUser(null);
-        setCompanies([]);
-        setCompanyMembers([]);
-        setWorkspaces([]);
-        setProjects([]);
-        setProjectMembers([]);
-        setScenesState([]);
-        setCastCrewState([]);
-        setLocations([]);
-        setShootingDaysState([]);
-        setCallSheetsState([]);
-        setArchiveLogs([]);
-        setActiveCompanyId(null);
-        setActiveWorkspaceId(null);
-        setActiveProjectId(null);
-        clearStoredSession();
+        setSession(null);
+        clearAuthState();
+        setAuthChecking(false);
         return;
       }
-      if (session?.user && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
-        const resolved = await resolveSessionProfile(supabase, session.user);
-        if (resolved.ok && !getAuthDenialReason(resolved.profile)) {
-          setUser(resolved.profile);
-          if (event === "SIGNED_IN") {
-            await loadCompanyData(session.user.id, resolved.profile);
-          }
-        } else if (!resolved.ok) {
-          updateAccessDebug({
-            authUserId: session.user.id,
-            email: session.user.email ?? null,
-            profileFound: resolved.profileFound,
-            lastError: resolved.error,
-          });
-        }
+
+      setSession(nextSession);
+
+      if (
+        event === "INITIAL_SESSION" ||
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED"
+      ) {
+        setAuthChecking(false);
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, [supabase, initAuth, loadCompanyData, updateAccessDebug]);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase, clearAuthState, logAuthDebug]);
+
+  useEffect(() => {
+    if (!supabase || authChecking) return;
+
+    if (!session?.user) {
+      setUser(null);
+      setProfileLoading(false);
+      return;
+    }
+
+    if (user?.id === session.user.id) {
+      setProfileLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setProfileLoading(true);
+
+    (async () => {
+      try {
+        const resolved = await resolveSessionProfile(
+          supabase,
+          session.user,
+          session
+        );
+        if (cancelled) return;
+
+        if (resolved.ok && !getAuthDenialReason(resolved.profile)) {
+          setUser(resolved.profile);
+          await loadCompanyData(session.user.id, resolved.profile);
+        } else {
+          setUser(null);
+          if (!resolved.ok) {
+            updateAccessDebug({
+              authUserId: session.user.id,
+              email: session.user.email ?? null,
+              profileFound: resolved.profileFound,
+              lastError: resolved.error,
+            });
+          }
+        }
+      } finally {
+        if (!cancelled) setProfileLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    supabase,
+    session?.access_token,
+    session?.user?.id,
+    authChecking,
+    loadCompanyData,
+    updateAccessDebug,
+  ]);
 
   useEffect(() => {
     if (activeProjectId) {
@@ -826,6 +888,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
             await supabase.auth.signOut();
             return { error: "Account non abilitato. Contatta Systemlix." };
           }
+          if (data.session) {
+            setSession(data.session);
+          }
           setUser(profile);
           const boot = await loadCompanyData(data.user.id, profile);
           const owner = isPlatformOwnerUser(profile);
@@ -845,12 +910,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     if (supabase) await supabase.auth.signOut();
-    setUser(null);
-    clearStoredSession();
-    setActiveCompanyId(null);
-    setActiveWorkspaceId(null);
-    setActiveProjectId(null);
-  }, [supabase]);
+    setSession(null);
+    clearAuthState();
+  }, [supabase, clearAuthState]);
 
   const setActiveCompany = useCallback(
     async (companyId: string) => {
@@ -1162,16 +1224,21 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   );
 
   const addCastCrewMember = useCallback(
-    async (data: Omit<CastCrew, "id" | "created_at" | "project_id">) => {
-      if (!supabase || !activeProjectId) return null;
+    async (
+      data: Omit<CastCrew, "id" | "created_at" | "project_id">,
+      explicitProjectId?: string
+    ) => {
+      const projectId = explicitProjectId ?? activeProjectId;
+      if (!supabase || !projectId) return null;
       try {
         const member = await db.insertCastCrew(supabase, {
           ...data,
-          project_id: activeProjectId,
+          project_id: projectId,
         });
         setCastCrewState((prev) => [...prev, member]);
         return member;
-      } catch {
+      } catch (err) {
+        console.error("[FilmOps] addCastCrewMember error:", err);
         return null;
       }
     },
@@ -1232,40 +1299,82 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     [supabase]
   );
 
-  const saveBreakdownToProject = useCallback(async () => {
-    if (!supabase || !activeProjectId) return 0;
-    const current = breakdownByProject[activeProjectId] ?? [];
-    if (current.length === 0) return 0;
-    try {
-      const toInsert = current.map((s) => ({
-        project_id: activeProjectId,
+  const saveBreakdownToProject = useCallback(
+    async (scenes: Scene[], explicitProjectId?: string) => {
+      const projectId = explicitProjectId ?? activeProjectId;
+      if (!projectId) {
+        return {
+          saved: 0,
+          error: "Seleziona un progetto prima di salvare il breakdown.",
+        };
+      }
+      if (!supabase) {
+        return { saved: 0, error: "Supabase non configurato." };
+      }
+      if (scenes.length === 0) {
+        return { saved: 0, error: "Nessuna scena da salvare." };
+      }
+      const toInsert = scenes.map((s) => ({
+        project_id: projectId,
         scene_number: s.scene_number,
         int_ext: s.int_ext,
         day_night: s.day_night,
         location: s.location,
         short_description: s.short_description,
-        characters: s.characters,
-        props: s.props,
-        costumes: s.costumes,
-        vfx: s.vfx,
-        stunts: s.stunts,
-        vehicles: s.vehicles,
-        animals: s.animals,
-        special_requirements: s.special_requirements,
+        characters: s.characters ?? [],
+        props: s.props ?? [],
+        costumes: s.costumes ?? [],
+        vfx: s.vfx ?? [],
+        stunts: s.stunts ?? [],
+        vehicles: s.vehicles ?? [],
+        animals: s.animals ?? [],
+        special_requirements: s.special_requirements ?? [],
         complexity: s.complexity,
-        production_notes: s.production_notes,
+        production_notes: s.production_notes ?? "",
       }));
-      const created = await db.insertScenes(supabase, toInsert);
-      setScenesState((prev) => {
-        const other = prev.filter((s) => s.project_id !== activeProjectId);
-        const existing = prev.filter((s) => s.project_id === activeProjectId);
-        return [...other, ...existing, ...created];
-      });
-      return created.length;
-    } catch {
-      return 0;
-    }
-  }, [activeProjectId, breakdownByProject, supabase]);
+
+      try {
+        const res = await fetch(`/api/projects/${projectId}/scenes`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scenes: toInsert }),
+        });
+        const body = (await res.json().catch(() => ({}))) as {
+          saved?: number;
+          scenes?: Scene[];
+          error?: string;
+        };
+
+        if (!res.ok || body.error) {
+          const message = body.error ?? "Errore durante il salvataggio scene";
+          console.error("[FilmOps] saveBreakdownToProject API error:", message);
+          if (message.toLowerCase().includes("row-level security")) {
+            return {
+              saved: 0,
+              error:
+                "Permesso negato su Supabase (RLS). Aggiungi SUPABASE_SERVICE_ROLE_KEY in .env.local oppure verifica global_role = platform_owner nel profilo.",
+            };
+          }
+          return { saved: 0, error: message };
+        }
+
+        const created = body.scenes ?? [];
+        setScenesState((prev) => {
+          const other = prev.filter((s) => s.project_id !== projectId);
+          const existing = prev.filter((s) => s.project_id === projectId);
+          return [...other, ...existing, ...created];
+        });
+        setBreakdownByProject((prev) => ({ ...prev, [projectId]: [] }));
+        await loadProjectData(projectId);
+        return { saved: body.saved ?? created.length, error: null };
+      } catch (err) {
+        console.error("[FilmOps] saveBreakdownToProject error:", err);
+        return { saved: 0, error: formatSupabaseError(err) };
+      }
+    },
+    [activeProjectId, currentUserId, supabase, loadProjectData]
+  );
 
   const updateScene = useCallback(
     async (id: string, updates: Partial<Scene>) => {
@@ -1546,8 +1655,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const value: PlatformContextValue = useMemo(
     () => ({
       user,
-      isAuthenticated: !!user,
+      session,
+      isAuthenticated: !!session?.user,
       authReady,
+      profileLoading,
       isLoading: authLoading,
       isPlatformOwner,
       accessDebug,
@@ -1556,7 +1667,19 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       company: companyCtx,
       project: projectCtx,
     }),
-    [user, authReady, authLoading, isPlatformOwner, accessDebug, login, logout, companyCtx, projectCtx]
+    [
+      user,
+      session,
+      authReady,
+      profileLoading,
+      authLoading,
+      isPlatformOwner,
+      accessDebug,
+      login,
+      logout,
+      companyCtx,
+      projectCtx,
+    ]
   );
 
   return (
@@ -1583,8 +1706,10 @@ export function useProject() {
 export function useAuth() {
   const {
     user,
+    session,
     isAuthenticated,
     authReady,
+    profileLoading,
     isLoading,
     isPlatformOwner,
     accessDebug,
@@ -1593,8 +1718,10 @@ export function useAuth() {
   } = usePlatform();
   return {
     user,
+    session,
     isAuthenticated,
     authReady,
+    profileLoading,
     isLoading,
     isPlatformOwner,
     accessDebug,

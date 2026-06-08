@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/context/PlatformContext";
 import { Archive, Bot, Clapperboard, FolderKanban, Loader2, Shield } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const FEATURES = [
   { icon: FolderKanban, label: "Workspace separati" },
@@ -18,12 +18,19 @@ const FEATURES = [
 ];
 
 export default function LoginPage() {
-  const { login, isLoading, authReady } = useAuth();
+  const { login, isLoading, authReady, isAuthenticated } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [requestOpen, setRequestOpen] = useState(false);
+
+  useEffect(() => {
+    if (!authReady) return;
+    if (isAuthenticated) {
+      router.replace("/dashboard");
+    }
+  }, [authReady, isAuthenticated, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +50,14 @@ export default function LoginPage() {
     }
     router.push("/dashboard");
   };
+
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg-base)]">
+        <Loader2 className="h-6 w-6 animate-spin text-[var(--text-muted)]" />
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex min-h-screen overflow-hidden bg-[var(--bg-base)]">

@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function SelectCompanyPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authReady } = useAuth();
   const {
     userCompanies,
     setActiveCompany,
@@ -23,8 +23,9 @@ export default function SelectCompanyPage() {
   const [companyType, setCompanyType] = useState("production_house");
 
   useEffect(() => {
+    if (!authReady) return;
     if (!isAuthenticated) router.replace("/login");
-  }, [isAuthenticated, router]);
+  }, [authReady, isAuthenticated, router]);
 
   const handleSelect = (companyId: string) => {
     setActiveCompany(companyId);
@@ -45,7 +46,7 @@ export default function SelectCompanyPage() {
     }
   };
 
-  if (!isAuthenticated) return null;
+  if (!authReady || !isAuthenticated) return null;
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-[var(--bg-base)] p-8">

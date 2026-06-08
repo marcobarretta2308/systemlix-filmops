@@ -25,7 +25,7 @@ function ScheduleCell({ label, value }: { label: string; value: string }) {
 }
 
 export default function ShootingDaysPage() {
-  const { projectId } = useSyncProjectFromUrl();
+  const { projectId, isProjectReady } = useSyncProjectFromUrl();
   const { shootingDays, addShootingDay, locations, scenes, canEditProject } = useProject();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Partial<ShootingDay>>({
@@ -68,6 +68,16 @@ export default function ShootingDaysPage() {
     });
     if (day) setOpen(false);
   };
+
+  if (!isProjectReady) {
+    return (
+      <EmptyState
+        icon={Calendar}
+        title="Nessun progetto attivo"
+        description="Seleziona un progetto per gestire le giornate di ripresa."
+      />
+    );
+  }
 
   return (
     <div>

@@ -22,7 +22,7 @@ const STATUS_LABELS: Record<CallSheetStatus, string> = {
 };
 
 export default function CallSheetsPage() {
-  const { projectId, project } = useSyncProjectFromUrl();
+  const { projectId, project, isProjectReady } = useSyncProjectFromUrl();
   const { activeCompany } = useCompany();
   const { user } = useAuth();
   const {
@@ -122,6 +122,16 @@ export default function CallSheetsPage() {
       setToast("Errore nel salvataggio del call sheet.");
     }
   };
+
+  if (!isProjectReady) {
+    return (
+      <EmptyState
+        icon={FileText}
+        title="Nessun progetto attivo"
+        description="Seleziona un progetto per gestire i call sheet."
+      />
+    );
+  }
 
   return (
     <div>

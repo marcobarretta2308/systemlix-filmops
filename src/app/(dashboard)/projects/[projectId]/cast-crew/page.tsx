@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Select } from "@/components/ui/Select";
+import { Toast } from "@/components/ui/Toast";
 import {
   Table,
   TableBody,
@@ -22,54 +23,111 @@ import { Plus, Users } from "lucide-react";
 import { useState } from "react";
 
 const STATUS_LABELS: Record<CastCrewStatus, string> = {
-  confirmed: "Confermato", pending: "In attesa", issue: "Problema",
+  confirmed: "Confermato",
+  pending: "In attesa",
+  issue: "Problema",
 };
 
 export default function CastCrewPage() {
-  useSyncProjectFromUrl();
-  const { castCrew, addCastCrewMember, canEditProject } = useProject();
+  const { projectId, isProjectReady } = useSyncProjectFromUrl();
+  const { castCrew, addCastCrewMember, canEditProject, refreshProjectData } =
+    useProject();
   const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [toastVariant, setToastVariant] = useState<"success" | "error">("success");
   const [form, setForm] = useState({
-    full_name: "", role: "", department: "", phone: "", email: "",
-    call_time: "07:00", permission_level: "viewer", status: "pending" as CastCrewStatus,
+    full_name: "",
+    role: "",
+    department: "",
+    phone: "",
+    email: "",
+    call_time: "07:00",
+    permission_level: "viewer",
+    status: "pending" as CastCrewStatus,
   });
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!form.full_name.trim()) return;
-    addCastCrewMember({
-      full_name: form.full_name,
-      role: form.role,
-      department: form.department,
-      phone: form.phone,
-      email: form.email,
-      call_time: form.call_time,
-      permission_level: form.permission_level,
-      status: form.status,
-    });
+    if (!projectId) {
+      setToastVariant("error");
+      setToast("Seleziona un progetto per gestire Cast & Crew.");
+      return;
+    }
+
+    setSubmitting(true);
+    const member = await addCastCrewMember(
+      {
+        full_name: form.full_name.trim(),
+        role: form.role.trim(),
+        department: form.department.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+        call_time: form.call_time,
+        permission_level: form.permission_level,
+        status: form.status,
+      },
+      projectId
+    );
+    setSubmitting(false);
+
+    if (!member) {
+      setToastVariant("error");
+      setToast("Errore durante il salvataggio su Supabase. Controlla la console.");
+      return;
+    }
+
+    await refreshProjectData();
     setOpen(false);
-    setForm({ full_name: "", role: "", department: "", phone: "", email: "", call_time: "07:00", permission_level: "viewer", status: "pending" });
+    setForm({
+      full_name: "",
+      role: "",
+      department: "",
+      phone: "",
+      email: "",
+      call_time: "07:00",
+      permission_level: "viewer",
+      status: "pending",
+    });
+    setToastVariant("success");
+    setToast("Persona aggiunta correttamente");
   };
+
+  if (!projectId || !isProjectReady) {
+    return (
+      <EmptyState
+        icon={Users}
+        title="Nessun progetto attivo"
+        description="Seleziona un progetto per gestire Cast & Crew."
+      />
+    );
+  }
 
   return (
     <div>
       <PageHeader
         title="Cast & Crew"
         description={`${castCrew.length} persone nel progetto attivo`}
-        actions={canEditProject && (
-          <Button onClick={() => setOpen(true)} size="sm">
-            <Plus className="h-4 w-4" />Aggiungi elemento
-          </Button>
-        )}
+        actions={
+          canEditProject && (
+            <Button onClick={() => setOpen(true)} size="sm">
+              <Plus className="h-4 w-4" />
+              Aggiungi persona
+            </Button>
+          )
+        }
       />
 
       {castCrew.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="Nessun dato presente"
+          title="Nessuna persona presente"
           description="Aggiungi cast e crew per gestire convocazioni e permessi."
           action={
             canEditProject && (
-              <Button onClick={() => setOpen(true)} size="sm">Aggiungi persona</Button>
+              <Button onClick={() => setOpen(true)} size="sm">
+                Aggiungi persona
+              </Button>
             )
           }
         />
@@ -78,7 +136,16 @@ export default function CastCrewPage() {
           <Table className="min-w-[900px]">
             <TableHead>
               <TableRow>
-                {["Nome", "Ruolo", "Reparto", "Telefono", "Email", "Convocazione", "Stato", "Permessi"].map((h) => (
+                {[
+                  "Nome",
+                  "Ruolo",
+                  "Reparto",
+                  "Telefono",
+                  "Email",
+                  "Convocazione",
+                  "Stato",
+                  "Permessi",
+                ].map((h) => (
                   <TableTh key={h}>{h}</TableTh>
                 ))}
               </TableRow>
@@ -86,18 +153,32 @@ export default function CastCrewPage() {
             <TableBody>
               {castCrew.map((m) => (
                 <TableRow key={m.id}>
-                  <TableTd className="font-medium text-slate-200">{m.full_name}</TableTd>
-                  <TableTd>{m.role}</TableTd>
-                  <TableTd className="text-slate-500">{m.department}</TableTd>
-                  <TableTd className="text-[12px] text-slate-500">{m.phone}</TableTd>
-                  <TableTd className="text-[12px] text-slate-500">{m.email}</TableTd>
-                  <TableTd className="font-mono text-slate-300">{m.call_time}</TableTd>
+                  <TableTd className="font-medium text-[var(--text-primary)]">
+                    {m.full_name}
+                  </TableTd>
+                  <TableTd className="text-[var(--text-secondary)]">{m.role}</TableTd>
+                  <TableTd className="text-[var(--text-muted)]">{m.department}</TableTd>
+                  <TableTd className="text-[12px] text-[var(--text-muted)]">{m.phone}</TableTd>
+                  <TableTd className="text-[12px] text-[var(--text-muted)]">{m.email}</TableTd>
+                  <TableTd className="font-mono text-[var(--text-secondary)]">
+                    {m.call_time}
+                  </TableTd>
                   <TableTd>
-                    <Badge variant={m.status === "confirmed" ? "confirmed" : m.status === "issue" ? "issue" : "pending"}>
+                    <Badge
+                      variant={
+                        m.status === "confirmed"
+                          ? "confirmed"
+                          : m.status === "issue"
+                            ? "issue"
+                            : "pending"
+                      }
+                    >
                       {STATUS_LABELS[m.status]}
                     </Badge>
                   </TableTd>
-                  <TableTd><Badge variant="violet">{m.permission_level}</Badge></TableTd>
+                  <TableTd>
+                    <Badge variant="violet">{m.permission_level}</Badge>
+                  </TableTd>
                 </TableRow>
               ))}
             </TableBody>
@@ -105,22 +186,84 @@ export default function CastCrewPage() {
         </div>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Aggiungi cast / crew" size="lg">
+      <Modal open={open} onClose={() => setOpen(false)} title="Aggiungi persona" size="lg">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Nome" value={form.full_name} onChange={(e) => setForm((p) => ({ ...p, full_name: e.target.value }))} />
-          <Input label="Ruolo" value={form.role} onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))} />
-          <Input label="Reparto" value={form.department} onChange={(e) => setForm((p) => ({ ...p, department: e.target.value }))} />
-          <Input label="Telefono" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
-          <Input label="Email" type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
-          <Input label="Convocazione" value={form.call_time} onChange={(e) => setForm((p) => ({ ...p, call_time: e.target.value }))} />
-          <Select label="Permessi" value={form.permission_level} onChange={(e) => setForm((p) => ({ ...p, permission_level: e.target.value }))} options={[{ value: "viewer", label: "Viewer" }, { value: "editor", label: "Editor" }, { value: "admin", label: "Admin" }]} />
-          <Select label="Stato conferma" value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as CastCrewStatus }))} options={[{ value: "confirmed", label: "Confermato" }, { value: "pending", label: "In attesa" }, { value: "issue", label: "Problema" }]} />
+          <Input
+            label="Nome completo"
+            value={form.full_name}
+            onChange={(e) => setForm((p) => ({ ...p, full_name: e.target.value }))}
+            required
+          />
+          <Input
+            label="Ruolo"
+            value={form.role}
+            onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}
+          />
+          <Input
+            label="Reparto"
+            value={form.department}
+            onChange={(e) => setForm((p) => ({ ...p, department: e.target.value }))}
+          />
+          <Input
+            label="Telefono"
+            value={form.phone}
+            onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+          />
+          <Input
+            label="Convocazione"
+            value={form.call_time}
+            onChange={(e) => setForm((p) => ({ ...p, call_time: e.target.value }))}
+          />
+          <Select
+            label="Permessi"
+            value={form.permission_level}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, permission_level: e.target.value }))
+            }
+            options={[
+              { value: "viewer", label: "Viewer" },
+              { value: "editor", label: "Editor" },
+              { value: "admin", label: "Admin" },
+            ]}
+          />
+          <Select
+            label="Stato"
+            value={form.status}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, status: e.target.value as CastCrewStatus }))
+            }
+            options={[
+              { value: "confirmed", label: "Confermato" },
+              { value: "pending", label: "In attesa" },
+              { value: "issue", label: "Problema" },
+            ]}
+          />
         </div>
         <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setOpen(false)}>Annulla</Button>
-          <Button onClick={handleAdd} disabled={!form.full_name.trim()}>Aggiungi</Button>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Annulla
+          </Button>
+          <Button
+            onClick={handleAdd}
+            disabled={!form.full_name.trim() || submitting}
+          >
+            {submitting ? "Salvataggio…" : "Aggiungi"}
+          </Button>
         </div>
       </Modal>
+
+      <Toast
+        message={toast ?? ""}
+        open={!!toast}
+        onClose={() => setToast(null)}
+        variant={toastVariant}
+      />
     </div>
   );
 }

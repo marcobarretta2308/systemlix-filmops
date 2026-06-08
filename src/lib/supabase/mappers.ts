@@ -133,15 +133,15 @@ export function mapScene(row: any): Scene {
   };
 }
 
-export function sceneToRow(scene: Partial<Scene> & { project_id: string }) {
+export function sceneToInsertRow(scene: Partial<Scene> & { project_id: string }) {
   return {
     project_id: scene.project_id,
     script_id: scene.script_id ?? null,
-    scene_number: scene.scene_number,
-    int_ext: scene.int_ext,
-    day_night: scene.day_night,
-    location: scene.location,
-    short_description: scene.short_description,
+    scene_number: scene.scene_number ?? "",
+    int_ext: scene.int_ext ?? "INT",
+    day_night: scene.day_night ?? "DAY",
+    location: scene.location ?? "",
+    short_description: scene.short_description ?? "",
     characters: scene.characters ?? [],
     props: scene.props ?? [],
     costumes: scene.costumes ?? [],
@@ -150,8 +150,14 @@ export function sceneToRow(scene: Partial<Scene> & { project_id: string }) {
     vehicles: scene.vehicles ?? [],
     animals: scene.animals ?? [],
     special_requirements: scene.special_requirements ?? [],
-    complexity: scene.complexity,
-    production_notes: scene.production_notes,
+    complexity: scene.complexity ?? "medium",
+    production_notes: scene.production_notes ?? "",
+  };
+}
+
+export function sceneToRow(scene: Partial<Scene> & { project_id: string }) {
+  return {
+    ...sceneToInsertRow(scene),
     updated_at: new Date().toISOString(),
   };
 }
