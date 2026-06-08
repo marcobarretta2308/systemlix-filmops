@@ -17,6 +17,12 @@ import {
   canReactivateProject,
   canViewProject,
 } from "@/lib/permissions";
+import {
+  isDepartmentUser,
+  resolveAutoProjectId,
+  resolveProjectPermissions,
+  type ProjectPermissions,
+} from "@/lib/permissions/project-permissions";
 import type {
   ArchiveAction,
   CallSheet,
@@ -137,6 +143,8 @@ interface ProjectContextValue {
   canReactivateProject: boolean;
   canViewProject: boolean;
   canArchiveProject: boolean;
+  projectPermissions: ProjectPermissions;
+  isDepartmentDashboard: boolean;
   scenes: Scene[];
   setScenes: React.Dispatch<React.SetStateAction<Scene[]>>;
   updateScene: (id: string, updates: Partial<Scene>) => Promise<void>;
@@ -158,6 +166,7 @@ interface ProjectContextValue {
   isLoadingProjectData: boolean;
   refreshProjectData: () => Promise<void>;
   activeProjectMembership: ProjectMember | null;
+  canManageAccess: boolean;
 }
 
 export interface AccessDebugInfo {
@@ -188,6 +197,8 @@ interface AuthContextValue {
     needsAccessAssignment?: boolean;
     isPlatformOwner?: boolean;
     needsPlatformSetup?: boolean;
+    initialProjectId?: string | null;
+    initialProjectDepartment?: string | null;
   }>;
   logout: () => Promise<void>;
   isPlatformOwner: boolean;
@@ -347,11 +358,25 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     async (
       userId: string,
       profile: User
-    ): Promise<{ companies: Company[]; needsPlatformSetup: boolean }> => {
-      if (!supabase) return { companies: [], needsPlatformSetup: false };
+    ): Promise<{
+      companies: Company[];
+      needsPlatformSetup: boolean;
+      initialProjectId: string | null;
+      initialProjectDepartment: string | null;
+    }> => {
+      if (!supabase) {
+        return {
+          companies: [],
+          needsPlatformSetup: false,
+          initialProjectId: null,
+          initialProjectDepartment: null,
+        };
+      }
       setCompanyLoading(true);
       let result: Company[] = [];
       let needsSetup = false;
+      let initialProjectId: string | null = null;
+      let initialProjectDepartment: string | null = null;
       const owner = isPlatformOwnerUser(profile);
 
       updateAccessDebug({
@@ -481,10 +506,31 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
                     )
                     .map((m) => m.project_id)
                 );
-            const validProj =
-              storedProj && allowedIds.has(storedProj) ? storedProj : null;
+            const validProj = isAdmin
+              ? storedProj && allowedIds.has(storedProj)
+                ? storedProj
+                : null
+              : resolveAutoProjectId(storedProj, allowedIds, projs);
             setActiveProjectId(validProj);
             setStoredProjectId(validProj);
+            initialProjectId = validProj;
+
+            if (validProj) {
+              const proj = projs.find((p) => p.id === validProj);
+              if (proj) {
+                setActiveWorkspaceId(proj.workspace_id);
+                setStoredWorkspaceId(proj.workspace_id);
+              }
+              if (!isAdmin) {
+                const projMembership = members.find(
+                  (m) =>
+                    m.user_id === userId &&
+                    m.project_id === validProj &&
+                    m.access_status === "active"
+                );
+                initialProjectDepartment = projMembership?.department ?? null;
+              }
+            }
           } else {
             setWorkspaces([]);
             setProjects([]);
@@ -505,7 +551,12 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       } finally {
         setCompanyLoading(false);
       }
-      return { companies: result, needsPlatformSetup: needsSetup };
+      return {
+        companies: result,
+        needsPlatformSetup: needsSetup,
+        initialProjectId,
+        initialProjectDepartment,
+      };
     },
     [supabase, updateAccessDebug]
   );
@@ -815,6 +866,20 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     isPlatformOwner,
   ]);
 
+  const projectPermissions = useMemo((): ProjectPermissions => {
+    return resolveProjectPermissions(user, companyRole, activeProjectMembership);
+  }, [user, companyRole, activeProjectMembership]);
+
+  const isDepartmentDashboard = useMemo(
+    () => isDepartmentUser(activeProjectMembership),
+    [activeProjectMembership]
+  );
+
+  const canManageAccess = useMemo(
+    () => isPlatformOwner || projectPermissions.can_manage_access,
+    [isPlatformOwner, projectPermissions.can_manage_access]
+  );
+
   const projectScenes = useMemo(
     () => filterByProject(scenes, activeProjectId),
     [scenes, activeProjectId]
@@ -898,6 +963,8 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
             needsAccessAssignment: !owner && boot.companies.length === 0,
             isPlatformOwner: owner,
             needsPlatformSetup: boot.needsPlatformSetup,
+            initialProjectId: boot.initialProjectId,
+            initialProjectDepartment: boot.initialProjectDepartment,
           };
         }
         return {};
@@ -953,8 +1020,34 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       const firstWs = ws[0]?.id ?? null;
       setActiveWorkspaceId(firstWs);
       setStoredWorkspaceId(firstWs);
+
+      if (!isPlatformOwner && currentUserId) {
+        const allowedIds = new Set(
+          members
+            .filter(
+              (m) => m.user_id === currentUserId && m.access_status === "active"
+            )
+            .map((m) => m.project_id)
+        );
+        const membership = userCompanyMemberships.find(
+          (m) => m.company_id === companyId
+        );
+        const isAdmin = membership?.role === "company_admin";
+        const autoProjectId = isAdmin
+          ? null
+          : resolveAutoProjectId(getStoredProjectId(), allowedIds, projs);
+        if (autoProjectId) {
+          setActiveProjectId(autoProjectId);
+          setStoredProjectId(autoProjectId);
+          const proj = projs.find((p) => p.id === autoProjectId);
+          if (proj) {
+            setActiveWorkspaceId(proj.workspace_id);
+            setStoredWorkspaceId(proj.workspace_id);
+          }
+        }
+      }
     },
-    [userCompanies, currentUserId, supabase, isPlatformOwner]
+    [userCompanies, currentUserId, supabase, isPlatformOwner, userCompanyMemberships]
   );
 
   const setActiveWorkspace = useCallback((workspaceId: string) => {
@@ -1568,9 +1661,13 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
             user,
             companyRole ?? "viewer",
             projectRole ?? undefined,
-            activeProjectMembership
+            activeProjectMembership,
+            projectPermissions
           )
         : false,
+      projectPermissions,
+      isDepartmentDashboard,
+      canManageAccess,
       canViewProject: activeProject
         ? canViewProject(
             activeProject,
@@ -1611,6 +1708,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     [
       activeProject,
       projectRole,
+      projectPermissions,
+      isDepartmentDashboard,
+      canManageAccess,
       accessibleProjects,
       accessibleProjectsAll,
       setActiveProject,

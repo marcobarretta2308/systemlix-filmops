@@ -26,10 +26,8 @@ export default function LoginPage() {
   const [requestOpen, setRequestOpen] = useState(false);
 
   useEffect(() => {
-    if (!authReady) return;
-    if (isAuthenticated) {
-      router.replace("/dashboard");
-    }
+    if (!authReady || !isAuthenticated) return;
+    router.replace("/dashboard");
   }, [authReady, isAuthenticated, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -46,6 +44,14 @@ export default function LoginPage() {
     }
     if (result.needsPlatformSetup) {
       router.push("/platform-setup");
+      return;
+    }
+    if (result.initialProjectId && result.initialProjectDepartment) {
+      router.push(`/projects/${result.initialProjectId}/department`);
+      return;
+    }
+    if (result.initialProjectId) {
+      router.push(`/projects/${result.initialProjectId}`);
       return;
     }
     router.push("/dashboard");

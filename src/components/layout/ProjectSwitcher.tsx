@@ -9,6 +9,7 @@ export function ProjectSwitcher() {
   const { needsPlatformSetup } = useCompany();
   const { activeProject, accessibleProjectsAll, setActiveProject } = useProject();
   const router = useRouter();
+  const singleProject = accessibleProjectsAll.length === 1 ? accessibleProjectsAll[0] : null;
 
   if (needsPlatformSetup && isPlatformOwner) {
     return (
@@ -43,7 +44,11 @@ export function ProjectSwitcher() {
           className="h-8 w-full appearance-none rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-surface)] pl-3 pr-8 text-[13px] text-[var(--text-secondary)] transition-colors duration-150 hover:border-[var(--border-default)] focus:border-[rgba(34,211,238,0.35)] focus:outline-none focus:ring-2 focus:ring-[rgba(34,211,238,0.08)]"
         >
           <option value="">
-            {accessibleProjectsAll.length === 0 ? "Nessun progetto" : "Seleziona progetto"}
+            {accessibleProjectsAll.length === 0
+              ? "Nessun progetto assegnato"
+              : singleProject
+                ? singleProject.title
+                : "Seleziona progetto"}
           </option>
           {accessibleProjectsAll.map((p) => (
             <option key={p.id} value={p.id}>

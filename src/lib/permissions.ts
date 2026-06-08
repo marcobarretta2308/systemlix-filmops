@@ -3,6 +3,7 @@ import {
   isProjectFinished,
   isProjectMembershipActive,
 } from "@/lib/access-control";
+import type { ProjectPermissions } from "@/lib/permissions/project-permissions";
 import type {
   CompanyMember,
   CompanyRole,
@@ -12,6 +13,17 @@ import type {
   ProjectStatus,
   User,
 } from "@/lib/types";
+
+export function hasAnyEditPermission(permissions: ProjectPermissions): boolean {
+  return (
+    permissions.can_edit_breakdown ||
+    permissions.can_edit_scenes ||
+    permissions.can_edit_cast_crew ||
+    permissions.can_edit_locations ||
+    permissions.can_edit_shooting_days ||
+    permissions.can_edit_call_sheets
+  );
+}
 
 const ADMIN_COMPANY_ROLES: CompanyRole[] = [
   "platform_owner",
@@ -82,7 +94,8 @@ export function canEditProject(
   user: User | null,
   companyRole: CompanyRole,
   projectRole?: ProjectRole,
-  projectMembership?: ProjectMember | null
+  projectMembership?: ProjectMember | null,
+  permissions?: ProjectPermissions | null
 ): boolean {
   if (projectMembership && !isProjectMembershipActive(projectMembership)) {
     return false;
@@ -99,6 +112,9 @@ export function canEditProject(
   }
 
   if (canManagePlatform(user, companyRole) || companyRole === "company_admin") return true;
+
+  if (permissions && hasAnyEditPermission(permissions)) return true;
+
   if (!projectRole) return false;
 
   if (projectRole === "viewer" || projectRole === "cast_crew_user") return false;

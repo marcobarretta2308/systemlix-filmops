@@ -14,6 +14,9 @@ import type { CallSheet, CallSheetStatus } from "@/lib/types";
 import { CheckCircle, Download, FileText, Lock, Save, Sparkles } from "lucide-react";
 import { useState } from "react";
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const STATUS_LABELS: Record<CallSheetStatus, string> = {
   draft: "Bozza",
   final: "Finale",
@@ -32,7 +35,9 @@ export default function CallSheetsPage() {
 
   const [selectedDayId, setSelectedDayId] = useState("");
   const [localPreview, setLocalPreview] = useState<CallSheet | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [toastVariant, setToastVariant] = useState<"success" | "error" | "warning">("success");
 
   const effectiveDayId = selectedDayId || shootingDays[0]?.id || "";
   const preview =
@@ -99,6 +104,7 @@ export default function CallSheetsPage() {
       setLocalPreview(saved);
       setActiveCallSheet(saved);
     }
+    setToastVariant("success");
     setToast(`Call sheet v${version} generato per ${day.day_number}.`);
   };
 
@@ -108,6 +114,7 @@ export default function CallSheetsPage() {
     setLocalPreview(updated);
     setActiveCallSheet(updated);
     await saveCallSheet(updated);
+    setToastVariant("success");
     setToast(`Stato aggiornato: ${STATUS_LABELS[status]}.`);
   };
 
@@ -117,9 +124,74 @@ export default function CallSheetsPage() {
     if (saved) {
       setLocalPreview(saved);
       setActiveCallSheet(saved);
+      setToastVariant("success");
       setToast(`Call sheet v${saved.version} salvato.`);
     } else {
+      setToastVariant("error");
       setToast("Errore nel salvataggio del call sheet.");
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!projectId) return;
+
+    const callSheetId =
+      preview?.id && UUID_RE.test(preview.id) ? preview.id : undefined;
+    const shootingDayId =
+      preview?.shooting_day_id && UUID_RE.test(preview.shooting_day_id)
+        ? preview.shooting_day_id
+        : effectiveDayId && UUID_RE.test(effectiveDayId)
+          ? effectiveDayId
+          : undefined;
+
+    if (!callSheetId && !shootingDayId) {
+      setToastVariant("warning");
+      setToast("Seleziona una giornata o genera un call sheet prima dell'export.");
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const response = await fetch("/api/call-sheets/export-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          ...(callSheetId ? { callSheetId } : {}),
+          ...(!callSheetId && shootingDayId ? { shootingDayId } : {}),
+        }),
+      });
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setToastVariant("error");
+        setToast(data.error ?? "Generazione PDF fallita");
+        return;
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") ?? "";
+      const filenameMatch = disposition.match(/filename="([^"]+)"/);
+      const filename = filenameMatch?.[1] ?? "systemlix-call-sheet.pdf";
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+
+      setToastVariant("success");
+      setToast("PDF scaricato correttamente.");
+    } catch {
+      setToastVariant("error");
+      setToast("Errore di rete durante la generazione del PDF");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -183,12 +255,13 @@ export default function CallSheetsPage() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => setToast("Export PDF pronto per integrazione backend.")}
-              disabled={!preview}
+              onClick={handleExportPdf}
+              disabled={isExporting || (!preview && !effectiveDayId)}
               className="w-full"
               size="sm"
             >
-              <Download className="h-3.5 w-3.5" />Esporta PDF
+              <Download className="h-3.5 w-3.5" />
+              {isExporting ? "Generazione PDF in corso..." : "Esporta PDF"}
             </Button>
             <div className="flex gap-2 pt-1">
               <Button
@@ -238,7 +311,12 @@ export default function CallSheetsPage() {
         </div>
       </div>
 
-      <Toast message={toast ?? ""} open={!!toast} onClose={() => setToast(null)} />
+      <Toast
+        message={toast ?? ""}
+        open={!!toast}
+        onClose={() => setToast(null)}
+        variant={toastVariant}
+      />
     </div>
   );
 }

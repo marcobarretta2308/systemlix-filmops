@@ -33,7 +33,12 @@ export type SetAssistantRole =
   | "actor"
   | "crew"
   | "driver"
-  | "extra";
+  | "extra"
+  | "costumi"
+  | "trucco"
+  | "props"
+  | "trasporti"
+  | "location_department";
 
 export type ArchiveAction =
   | "project_archived"
@@ -106,6 +111,21 @@ export interface ProjectMember {
   user_id: string;
   role: ProjectRole;
   department?: string;
+  permission_profile?: string;
+  can_view_breakdown?: boolean;
+  can_edit_breakdown?: boolean;
+  can_view_scenes?: boolean;
+  can_edit_scenes?: boolean;
+  can_view_cast_crew?: boolean;
+  can_edit_cast_crew?: boolean;
+  can_view_locations?: boolean;
+  can_edit_locations?: boolean;
+  can_view_shooting_days?: boolean;
+  can_edit_shooting_days?: boolean;
+  can_view_call_sheets?: boolean;
+  can_edit_call_sheets?: boolean;
+  can_view_set_assistant?: boolean;
+  can_manage_access?: boolean;
   access_status: AccessStatus;
   access_start_date?: string;
   access_end_date?: string;

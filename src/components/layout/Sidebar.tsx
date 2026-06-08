@@ -1,6 +1,12 @@
 "use client";
 
 import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
+import {
+  getDepartmentDashboardLabel,
+  isCostumiDepartment,
+  shouldShowProjectNavItem,
+  type ProjectPermissions,
+} from "@/lib/permissions/project-permissions";
 import { cn } from "@/lib/utils/cn";
 import {
   Archive,
@@ -15,23 +21,95 @@ import {
   Plus,
   ScrollText,
   Shield,
+  Shirt,
   Users,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-function projectNav(projectId: string) {
+type NavItemDef = {
+  key: string;
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  visible?: (permissions: ProjectPermissions, isDepartment: boolean) => boolean;
+};
+
+function projectNav(projectId: string, department?: string | null): NavItemDef[] {
+  const departmentLabel = getDepartmentDashboardLabel(department);
+
   return [
-    { href: `/projects/${projectId}`, label: "Panoramica", icon: Clapperboard },
-    { href: `/projects/${projectId}/script-breakdown`, label: "Script Breakdown", icon: ScrollText },
-    { href: `/projects/${projectId}/scenes`, label: "Scene", icon: FileText },
-    { href: `/projects/${projectId}/cast-crew`, label: "Cast & Crew", icon: Users },
-    { href: `/projects/${projectId}/locations`, label: "Location", icon: MapPin },
-    { href: `/projects/${projectId}/shooting-days`, label: "Giornate", icon: Calendar },
-    { href: `/projects/${projectId}/call-sheets`, label: "Call Sheet", icon: FileText },
-    { href: `/projects/${projectId}/set-assistant`, label: "Set Assistant", icon: Bot },
-    { href: `/projects/${projectId}/archive`, label: "Archivio", icon: Archive },
+    {
+      key: "overview",
+      href: `/projects/${projectId}`,
+      label: "Panoramica",
+      icon: Clapperboard,
+      visible: (_p, isDept) => !isDept,
+    },
+    {
+      key: "department",
+      href: `/projects/${projectId}/department`,
+      label: departmentLabel,
+      icon: Shirt,
+      visible: (_p, isDept) => isDept,
+    },
+    {
+      key: "script-breakdown",
+      href: `/projects/${projectId}/script-breakdown`,
+      label: "Script Breakdown",
+      icon: ScrollText,
+      visible: (p) => p.can_view_breakdown,
+    },
+    {
+      key: "scenes",
+      href: `/projects/${projectId}/scenes`,
+      label: "Scene",
+      icon: FileText,
+      visible: (p) => p.can_view_scenes,
+    },
+    {
+      key: "cast-crew",
+      href: `/projects/${projectId}/cast-crew`,
+      label: "Cast & Crew",
+      icon: Users,
+      visible: (p) => p.can_view_cast_crew,
+    },
+    {
+      key: "locations",
+      href: `/projects/${projectId}/locations`,
+      label: "Location",
+      icon: MapPin,
+      visible: (p) => p.can_view_locations,
+    },
+    {
+      key: "shooting-days",
+      href: `/projects/${projectId}/shooting-days`,
+      label: "Giornate",
+      icon: Calendar,
+      visible: (p) => p.can_view_shooting_days,
+    },
+    {
+      key: "call-sheets",
+      href: `/projects/${projectId}/call-sheets`,
+      label: "Call Sheet",
+      icon: FileText,
+      visible: (p) => p.can_view_call_sheets,
+    },
+    {
+      key: "set-assistant",
+      href: `/projects/${projectId}/set-assistant`,
+      label: "Set Assistant",
+      icon: Bot,
+      visible: (p) => p.can_view_set_assistant,
+    },
+    {
+      key: "archive",
+      href: `/projects/${projectId}/archive`,
+      label: "Archivio",
+      icon: Archive,
+      visible: (p, isDept) => !isDept && p.can_manage_access,
+    },
   ];
 }
 
@@ -69,7 +147,15 @@ export function Sidebar() {
   const pathname = usePathname();
   const { isPlatformOwner } = useAuth();
   const { activeCompany, canCreateProject, needsPlatformSetup, isLoading } = useCompany();
-  const { activeProject } = useProject();
+  const {
+    activeProject,
+    projectPermissions,
+    isDepartmentDashboard,
+    canManageAccess,
+    accessibleProjectsAll,
+  } = useProject();
+
+  const isCostumiUser = isCostumiDepartment(projectPermissions, isDepartmentDashboard);
 
   const newProjectHref =
     needsPlatformSetup && isPlatformOwner ? "/platform-setup?step=project" : "/projects/new";
@@ -84,12 +170,24 @@ export function Sidebar() {
     ...(canCreateProject
       ? [{ href: newProjectHref, label: "Nuovo progetto", icon: Plus, exact: true }]
       : []),
-    ...(isPlatformOwner
+    ...(isPlatformOwner || canManageAccess
       ? [{ href: "/admin/access", label: "Gestione accessi", icon: Shield, exact: true }]
       : []),
   ];
 
-  const projectLinks = activeProject ? projectNav(activeProject.id) : [];
+  const projectLinks = activeProject
+    ? projectNav(activeProject.id, projectPermissions.department).filter((item) => {
+        const defaultVisible = item.visible
+          ? item.visible(projectPermissions, isDepartmentDashboard)
+          : true;
+        return shouldShowProjectNavItem(
+          item.key,
+          projectPermissions,
+          isDepartmentDashboard,
+          defaultVisible
+        );
+      })
+    : [];
 
   const isPlatformActive = (href: string, exact?: boolean) => {
     if (exact) return pathname === href;
@@ -118,23 +216,26 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <p className="mb-2 px-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--text-muted)]">
-          Piattaforma
-        </p>
-        <ul className="space-y-0.5">
-          {platformNav.map((item) => (
-            <li key={item.href}>
-              <NavItem
-                href={item.href}
-                label={item.label}
-                icon={item.icon}
-                active={isPlatformActive(item.href, item.exact)}
-              />
-            </li>
-          ))}
-        </ul>
-
-        <div className="my-4 mx-2 h-px bg-[var(--border-subtle)]" />
+        {!isCostumiUser && (
+          <>
+            <p className="mb-2 px-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--text-muted)]">
+              Piattaforma
+            </p>
+            <ul className="space-y-0.5">
+              {platformNav.map((item) => (
+                <li key={item.href}>
+                  <NavItem
+                    href={item.href}
+                    label={item.label}
+                    icon={item.icon}
+                    active={isPlatformActive(item.href, item.exact)}
+                  />
+                </li>
+              ))}
+            </ul>
+            <div className="my-4 mx-2 h-px bg-[var(--border-subtle)]" />
+          </>
+        )}
 
         <p className="mb-2 px-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--text-muted)]">
           Progetto
@@ -142,7 +243,9 @@ export function Sidebar() {
 
         {!activeProject ? (
           <p className="px-2.5 py-2 text-[12px] text-[var(--text-muted)] leading-relaxed">
-            Seleziona un progetto per accedere agli strumenti.
+            {accessibleProjectsAll.length === 0
+              ? "Nessun progetto assegnato."
+              : "Seleziona un progetto per accedere agli strumenti."}
           </p>
         ) : (
           <>

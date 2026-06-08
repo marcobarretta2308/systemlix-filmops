@@ -17,6 +17,10 @@ import {
 } from "@/components/ui/Table";
 import { useSyncProjectFromUrl } from "@/hooks/useSyncProjectFromUrl";
 import { useProject } from "@/lib/context/PlatformContext";
+import {
+  aiScenesToDraftScenes,
+  type AiBreakdownScene,
+} from "@/lib/ai/script-breakdown";
 import { SAMPLE_SCRIPT_TEXT } from "@/lib/mock-data";
 import { generateMockBreakdownScenes } from "@/lib/utils/generate-breakdown";
 import type { Complexity, Scene } from "@/lib/types";
@@ -115,12 +119,54 @@ export default function ScriptBreakdownPage() {
   const handleGenerate = async () => {
     if (!projectId || !scriptText.trim()) return;
     setIsGenerating(true);
-    await new Promise((r) => setTimeout(r, 900));
+    try {
+      const response = await fetch("/api/ai/script-breakdown", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scriptText, projectId }),
+      });
+
+      const data = (await response.json().catch(() => ({}))) as {
+        scenes?: unknown[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        setToastVariant("error");
+        setToast(data.error ?? "Generazione breakdown fallita");
+        return;
+      }
+
+      if (!Array.isArray(data.scenes) || data.scenes.length === 0) {
+        setToastVariant("error");
+        setToast("Risposta AI non valida: nessuna scena estratta");
+        return;
+      }
+
+      const generated = aiScenesToDraftScenes(
+        projectId,
+        data.scenes as AiBreakdownScene[]
+      );
+      setDraftScenes(generated);
+      setToastVariant("success");
+      setToast(`${generated.length} scene generate dal copione.`);
+    } catch {
+      setToastVariant("error");
+      setToast("Errore di rete durante la generazione del breakdown");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleGenerateMock = async () => {
+    if (!projectId || !scriptText.trim()) return;
+    setIsGenerating(true);
+    await new Promise((r) => setTimeout(r, 400));
     const generated = generateMockBreakdownScenes(projectId, scriptText);
     setDraftScenes(generated);
     setIsGenerating(false);
     setToastVariant("success");
-    setToast(`${generated.length} scene generate dal copione.`);
+    setToast(`${generated.length} scene mock generate.`);
   };
 
   const handleSave = async () => {
@@ -173,8 +219,18 @@ export default function ScriptBreakdownPage() {
               size="sm"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              {isGenerating ? "Analisi..." : "Genera breakdown"}
+              {isGenerating ? "Analisi sceneggiatura in corso..." : "Genera breakdown"}
             </Button>
+            {process.env.NODE_ENV === "development" && (
+              <Button
+                variant="outline"
+                onClick={handleGenerateMock}
+                disabled={isGenerating || !canEditProject}
+                size="sm"
+              >
+                Genera mock
+              </Button>
+            )}
             <Button
               variant="secondary"
               onClick={handleSave}
@@ -214,7 +270,13 @@ export default function ScriptBreakdownPage() {
           onChange={(e) => setScriptText(e.target.value)}
           className="min-h-[200px] font-mono text-[12px] leading-relaxed"
           placeholder="Incolla il copione qui..."
+          disabled={isGenerating}
         />
+        {isGenerating && (
+          <p className="mt-3 text-[13px] text-[var(--accent-cyan)]">
+            Analisi sceneggiatura in corso...
+          </p>
+        )}
       </PremiumCard>
 
       {draftScenes.length === 0 ? (
@@ -223,9 +285,22 @@ export default function ScriptBreakdownPage() {
           title="Nessuna scena presente"
           description="Genera un breakdown dal copione o aggiungi scene manualmente dal database."
           action={
-            <Button onClick={handleGenerate} disabled={isGenerating || !canEditProject} size="sm">
-              <Sparkles className="h-3.5 w-3.5" />Genera breakdown
-            </Button>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button onClick={handleGenerate} disabled={isGenerating || !canEditProject} size="sm">
+                <Sparkles className="h-3.5 w-3.5" />
+                {isGenerating ? "Analisi sceneggiatura in corso..." : "Genera breakdown"}
+              </Button>
+              {process.env.NODE_ENV === "development" && (
+                <Button
+                  variant="outline"
+                  onClick={handleGenerateMock}
+                  disabled={isGenerating || !canEditProject}
+                  size="sm"
+                >
+                  Genera mock
+                </Button>
+              )}
+            </div>
           }
         />
       ) : (

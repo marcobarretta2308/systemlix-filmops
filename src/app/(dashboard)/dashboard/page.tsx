@@ -2,6 +2,7 @@
 
 import { PlatformSetupPrompt } from "@/components/platform/PlatformSetupPrompt";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PremiumCard } from "@/components/ui/PremiumCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -10,7 +11,7 @@ import { Building2, FolderKanban, Plus } from "lucide-react";
 import Link from "next/link";
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, isPlatformOwner } = useAuth();
   const {
     activeCompany,
     activeWorkspace,
@@ -19,8 +20,9 @@ export default function DashboardPage() {
     canCreateProject,
     canManagePlatform,
     needsPlatformSetup,
+    isLoading,
   } = useCompany();
-  const { accessibleProjects, activeProject } = useProject();
+  const { accessibleProjects, accessibleProjectsAll, activeProject } = useProject();
 
   if (needsPlatformSetup) {
     return (
@@ -31,6 +33,16 @@ export default function DashboardPage() {
         />
         <PlatformSetupPrompt />
       </div>
+    );
+  }
+
+  if (!isLoading && !isPlatformOwner && !canManagePlatform && accessibleProjectsAll.length === 0) {
+    return (
+      <EmptyState
+        icon={FolderKanban}
+        title="Nessun progetto assegnato"
+        description="Contatta la produzione per ottenere accesso a un progetto."
+      />
     );
   }
 

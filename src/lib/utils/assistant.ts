@@ -17,14 +17,81 @@ interface AssistantContext {
   castCrew: CastCrew[];
   role: SetAssistantRole;
   memberName?: string;
+  usingAllScenes?: boolean;
 }
 
 function formatList(items: string[]): string {
   return items.length ? items.join(", ") : "N/A";
 }
 
-function unavailable(): string {
+function unavailable(role?: SetAssistantRole): string {
+  if (role === "costumi") {
+    return "Questa informazione non è disponibile nel breakdown del progetto. Contatta la produzione.";
+  }
   return "Questa informazione non è disponibile nel foglio di lavoro corrente. Contattare la produzione.";
+}
+
+function formatSceneIntExt(scene: Scene): string {
+  const parts = [scene.location, scene.int_ext].filter(Boolean);
+  return parts.join(" — ") || "—";
+}
+
+function answerCostumiQuestion(question: string, ctx: AssistantContext): string | null {
+  const q = question.toLowerCase();
+  if (!q.includes("costum") && !q.includes("look") && !q.includes("abbigliamento")) {
+    return null;
+  }
+
+  const scenes = ctx.scenes;
+  const intro = ctx.shootingDay && !ctx.usingAllScenes
+    ? `Per la giornata ${ctx.shootingDay.day_number} sono previste queste scene:\n`
+    : "Non è stata selezionata una giornata di ripresa. Mostro tutte le scene disponibili nel progetto.\n";
+
+  if (!scenes.length) {
+    if (ctx.shootingDay && !ctx.usingAllScenes) {
+      return `${intro}\nNessuna scena collegata alla giornata di riferimento.`;
+    }
+    return unavailable("costumi");
+  }
+
+  const sceneLines: string[] = [];
+  let hasCostumes = false;
+  let hasCharacters = false;
+
+  for (const scene of scenes) {
+    const costumes = scene.costumes.filter(Boolean);
+    const characters = scene.characters.filter(Boolean);
+    if (characters.length) hasCharacters = true;
+
+    if (costumes.length) {
+      hasCostumes = true;
+      sceneLines.push(
+        `- Scena ${scene.scene_number} — ${costumes.join(", ")}`,
+        `  Personaggi: ${characters.length ? characters.join(", ") : "—"}`,
+        `  Location: ${formatSceneIntExt(scene)}`
+      );
+      if (scene.production_notes) {
+        sceneLines.push(`  Note: ${scene.production_notes}`);
+      }
+    } else if (characters.length) {
+      sceneLines.push(
+        `- Scena ${scene.scene_number} — nel breakdown non sono presenti costumi specifici`,
+        `  Personaggi: ${characters.join(", ")}`,
+        `  Location: ${formatSceneIntExt(scene)}`
+      );
+    }
+  }
+
+  if (hasCostumes) {
+    return `${intro}\n${sceneLines.join("\n")}\n\nNon sono presenti ulteriori note costume nel breakdown.`;
+  }
+
+  if (hasCharacters) {
+    const allChars = [...new Set(scenes.flatMap((s) => s.characters).filter(Boolean))];
+    return `${intro}\nNel breakdown non sono presenti costumi specifici per queste scene. Personaggi presenti: ${allChars.join(", ")}. Consiglio di verificare con il reparto costumi o produzione.`;
+  }
+
+  return unavailable("costumi");
 }
 
 export function generateAssistantResponse(
@@ -33,11 +100,16 @@ export function generateAssistantResponse(
 ): string {
   const q = question.toLowerCase().trim();
 
+  if (ctx.role === "costumi") {
+    const costumiAnswer = answerCostumiQuestion(question, ctx);
+    if (costumiAnswer) return costumiAnswer;
+  }
+
   if (
     q.includes("dove") &&
     (q.includes("domani") || q.includes("essere") || q.includes("set"))
   ) {
-    if (!ctx.callSheet && !ctx.shootingDay) return unavailable();
+    if (!ctx.callSheet && !ctx.shootingDay) return unavailable(ctx.role);
     const location =
       ctx.callSheet?.location ??
       ctx.locations.find((l) => l.id === ctx.shootingDay?.location_id)?.name;
@@ -63,7 +135,7 @@ export function generateAssistantResponse(
 
   if (q.includes("call time") || q.includes("convocazione") || q.includes("orario")) {
     const time = getCallTimeForRole(ctx);
-    if (!time || time === "—") return unavailable();
+    if (!time || time === "—") return unavailable(ctx.role);
     if (ctx.role === "producer") {
       return `Convocazioni del giorno:\n• Crew generale: ${ctx.shootingDay?.general_crew_call ?? "—"}\n• Cast: ${ctx.shootingDay?.cast_call ?? "—"}\n• Trucco: ${ctx.shootingDay?.makeup_call ?? "—"}\n• Prima inquadratura: ${ctx.shootingDay?.first_shot ?? "—"}`;
     }
@@ -75,7 +147,7 @@ export function generateAssistantResponse(
       ctx.callSheet?.scenes_to_shoot ??
       ctx.shootingDay?.selected_scene_ids ??
       [];
-    if (!sceneIds.length) return unavailable();
+    if (!sceneIds.length) return unavailable(ctx.role);
     const dayScenes = ctx.scenes.filter(
       (s) =>
         sceneIds.includes(s.id) || sceneIds.includes(s.scene_number)
@@ -102,14 +174,14 @@ export function generateAssistantResponse(
       ctx.callSheet?.schedule.find((s) =>
         s.activity.toLowerCase().includes("pranzo")
       )?.time;
-    if (!lunch) return unavailable();
+    if (!lunch) return unavailable(ctx.role);
     return `Orario pranzo: ${lunch}.`;
   }
 
   if (q.includes("parcheggio") || q.includes("parking")) {
     const parking =
       ctx.callSheet?.parking_notes ?? ctx.shootingDay?.parking ?? "";
-    if (!parking) return unavailable();
+    if (!parking) return unavailable(ctx.role);
     if (ctx.role === "driver") {
       return `Parcheggio mezzi e bus: ${parking}\nNote trasporti: ${ctx.shootingDay?.transport_notes ?? "—"}`;
     }
@@ -117,8 +189,47 @@ export function generateAssistantResponse(
   }
 
   if (q.includes("foglio") || q.includes("call sheet") || q.includes("ultimo")) {
-    if (!ctx.callSheet) return unavailable();
+    if (!ctx.callSheet) return unavailable(ctx.role);
     return `Foglio di lavoro v${ctx.callSheet.version} — Stato: ${ctx.callSheet.status}.\nGiornata: ${ctx.callSheet.day_number}\nData: ${ctx.callSheet.date}\nLocation: ${ctx.callSheet.location}\nScene: ${ctx.callSheet.scenes_to_shoot.join(", ")}`;
+  }
+
+  if (q.includes("props")) {
+    const dayScenes = ctx.scenes.filter(
+      (s) =>
+        ctx.shootingDay?.selected_scene_ids.includes(s.id) ||
+        ctx.callSheet?.scenes_to_shoot.includes(s.scene_number)
+    );
+    const props = [...new Set(dayScenes.flatMap((s) => s.props))];
+    if (!props.length) return unavailable(ctx.role);
+    return `Props previsti: ${formatList(props)}.`;
+  }
+
+  if (q.includes("compless") || q.includes("criticit")) {
+    const dayScenes = ctx.scenes.filter(
+      (s) =>
+        ctx.shootingDay?.selected_scene_ids.includes(s.id) ||
+        ctx.callSheet?.scenes_to_shoot.includes(s.scene_number)
+    );
+    const complex = dayScenes.filter(
+      (s) => s.complexity === "high" || s.complexity === "very_high"
+    );
+    if (!complex.length) return "Nessuna scena ad alta complessità nel programma attuale.";
+    return complex
+      .map((s) => `Scena ${s.scene_number} (${s.complexity}): ${s.short_description}`)
+      .join("\n");
+  }
+
+  if (q.includes("convocat") || q.includes("chi è")) {
+    if (!ctx.castCrew.length) return unavailable(ctx.role);
+    if (ctx.role === "actor" || ctx.role === "extra") {
+      return `Convocazione cast: ${ctx.shootingDay?.cast_call ?? "—"}.`;
+    }
+    return ctx.castCrew
+      .map(
+        (m) =>
+          `${m.full_name} (${m.department}) — ${m.call_time || ctx.shootingDay?.general_crew_call || "—"}`
+      )
+      .join("\n");
   }
 
   if (q.includes("emergenza") || q.includes("emergency") || q.includes("contatto")) {
@@ -127,7 +238,7 @@ export function generateAssistantResponse(
       (ctx.shootingDay?.emergency_contact
         ? [{ name: "Produzione", role: "Emergenze", phone: ctx.shootingDay.emergency_contact }]
         : []);
-    if (!contacts.length) return unavailable();
+    if (!contacts.length) return unavailable(ctx.role);
     if (ctx.role === "crew" || ctx.role === "actor" || ctx.role === "driver") {
       return `Contatto emergenza: ${contacts[0].name} — ${contacts[0].phone}`;
     }
@@ -161,9 +272,11 @@ function getCallTimeForRole(ctx: AssistantContext): string {
 
 export const SUGGESTED_QUESTIONS = [
   "Dove devo essere domani?",
-  "Qual è il mio orario di convocazione?",
-  "Quali scene si girano oggi?",
-  "Dove si parcheggia?",
-  "Inviami l'ultimo foglio di lavoro",
+  "Che scene giriamo?",
+  "A che ora è il pranzo?",
   "Chi è il contatto emergenza?",
+  "Quali props servono?",
+  "Quali sono le scene più complesse?",
+  "Chi è convocato?",
+  "Dove parcheggio?",
 ] as const;

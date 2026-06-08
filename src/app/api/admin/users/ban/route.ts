@@ -1,6 +1,10 @@
-import { verifyPlatformOwner } from "@/lib/api/verify-platform-owner";
-import { isAdminApiConfigured } from "@/lib/supabase/admin";
+import { adminRouteErrorResponse } from "@/lib/api/admin-route";
+import { requireAdminClient } from "@/lib/api/admin-service";
+import { verifyPlatformOwner } from "@/lib/api/verify-admin";
+import { logAdminEnvStatus } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const auth = await verifyPlatformOwner();
@@ -8,26 +12,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
-  const body = await request.json().catch(() => ({}));
+  const body = (await request.json().catch(() => ({}))) as {
+    user_id?: string;
+    email?: string;
+    auth_status?: "banned" | "active";
+  };
 
-  // TODO: supabase.auth.admin.updateUserById({ ban_duration: '...' })
-  // and profiles.auth_status = 'banned' via service role.
-  if (!isAdminApiConfigured()) {
-    return NextResponse.json(
-      {
-        error: "Admin API non configurata",
-        todo: "Implementare ban/disabilitazione con service role",
-        received: body,
-      },
-      { status: 501 }
-    );
+  try {
+    logAdminEnvStatus("ban user");
+    const admin = requireAdminClient();
+
+    let userId = body.user_id?.trim();
+    if (!userId && body.email) {
+      const { data } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("email", body.email.trim().toLowerCase())
+        .maybeSingle();
+      userId = data?.id;
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: "Utente non trovato" }, { status: 404 });
+    }
+
+    const status = body.auth_status ?? "banned";
+
+    const { error } = await admin
+      .from("profiles")
+      .update({ auth_status: status })
+      .eq("id", userId);
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, user_id: userId, auth_status: status });
+  } catch (error) {
+    return adminRouteErrorResponse("ban user", error, "Operazione fallita");
   }
-
-  return NextResponse.json(
-    {
-      message: "TODO: implementare ban/disabilitazione utente",
-      performedBy: auth.userId,
-    },
-    { status: 501 }
-  );
 }

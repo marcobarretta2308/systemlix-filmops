@@ -1,5 +1,6 @@
 "use client";
 
+import { ProjectSessionManager } from "./ProjectSessionManager";
 import { ProjectStatusBanner } from "./ProjectStatusBanner";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
@@ -7,6 +8,7 @@ import { TopBar } from "./TopBar";
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[var(--bg-base)]">
+      <ProjectSessionManager />
       <Sidebar />
       <div
         className="flex min-h-screen min-w-0 flex-col"
