@@ -11,6 +11,10 @@ import type {
   Location,
   Project,
   ProjectArchiveLog,
+  ProductionReport,
+  ProductionReportDepartmentNote,
+  ProductionReportIssue,
+  ProductionReportScene,
   ProjectDocument,
   ProjectMember,
   ProjectRole,
@@ -34,6 +38,10 @@ import {
   mapProfile,
   mapProject,
   mapProjectMember,
+  mapProductionReport,
+  mapProductionReportDepartmentNote,
+  mapProductionReportIssue,
+  mapProductionReportScene,
   mapScene,
   mapShootingDay,
   mapWorkspace,
@@ -371,6 +379,10 @@ export async function fetchProjectData(
   documents: ProjectDocument[];
   distributions: CallSheetDistribution[];
   recipients: CallSheetRecipient[];
+  productionReports: ProductionReport[];
+  productionReportScenes: ProductionReportScene[];
+  productionReportIssues: ProductionReportIssue[];
+  productionReportDeptNotes: ProductionReportDepartmentNote[];
 }> {
   const [
     scenesRes,
@@ -382,6 +394,7 @@ export async function fetchProjectData(
     docsRes,
     distRes,
     recipRes,
+    reportsRes,
   ] = await Promise.all([
       supabase
         .from("scenes")
@@ -429,6 +442,11 @@ export async function fetchProjectData(
         .select("*")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("production_reports")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("report_date", { ascending: false }),
     ]);
 
   for (const res of [
@@ -441,8 +459,40 @@ export async function fetchProjectData(
     docsRes,
     distRes,
     recipRes,
+    reportsRes,
   ]) {
     if (res.error) throw res.error;
+  }
+
+  const reportIds = (reportsRes.data ?? []).map((r) => r.id as string);
+  let reportScenesData: unknown[] = [];
+  let reportIssuesData: unknown[] = [];
+  let reportDeptNotesData: unknown[] = [];
+
+  if (reportIds.length > 0) {
+    const [scenesR, issuesR, notesR] = await Promise.all([
+      supabase
+        .from("production_report_scenes")
+        .select("*")
+        .in("report_id", reportIds)
+        .order("scene_number"),
+      supabase
+        .from("production_report_issues")
+        .select("*")
+        .in("report_id", reportIds)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("production_report_department_notes")
+        .select("*")
+        .in("report_id", reportIds)
+        .order("department"),
+    ]);
+    for (const res of [scenesR, issuesR, notesR]) {
+      if (res.error) throw res.error;
+    }
+    reportScenesData = scenesR.data ?? [];
+    reportIssuesData = issuesR.data ?? [];
+    reportDeptNotesData = notesR.data ?? [];
   }
 
   const documents = await enrichProjectDocumentsWithUploaderNames(
@@ -459,6 +509,11 @@ export async function fetchProjectData(
     (recipRes.data ?? []).map(mapCallSheetRecipient)
   );
 
+  const productionReports = await enrichProductionReportsWithNames(
+    supabase,
+    (reportsRes.data ?? []).map(mapProductionReport)
+  );
+
   return {
     scenes: (scenesRes.data ?? []).map(mapScene),
     castCrew: (castRes.data ?? []).map(mapCastCrew),
@@ -469,7 +524,41 @@ export async function fetchProjectData(
     documents,
     distributions,
     recipients,
+    productionReports,
+    productionReportScenes: reportScenesData.map(mapProductionReportScene),
+    productionReportIssues: reportIssuesData.map(mapProductionReportIssue),
+    productionReportDeptNotes: reportDeptNotesData.map(
+      mapProductionReportDepartmentNote
+    ),
   };
+}
+
+async function enrichProductionReportsWithNames(
+  supabase: SupabaseClient,
+  rows: ProductionReport[]
+): Promise<ProductionReport[]> {
+  const ids = [
+    ...new Set(
+      rows.flatMap((r) => [
+        r.created_by,
+        r.submitted_by,
+        r.approved_by,
+      ]).filter(Boolean)
+    ),
+  ] as string[];
+  const names = new Map<string, string>();
+  await Promise.all(
+    ids.map(async (uid) => {
+      const { data } = await supabase.rpc("profile_display_name", { uid });
+      if (data) names.set(uid, String(data));
+    })
+  );
+  return rows.map((r) => ({
+    ...r,
+    creator_name: r.created_by ? names.get(r.created_by) : undefined,
+    submitter_name: r.submitted_by ? names.get(r.submitted_by) : undefined,
+    approver_name: r.approved_by ? names.get(r.approved_by) : undefined,
+  }));
 }
 
 async function enrichDistributionsWithNames(
@@ -1471,4 +1560,230 @@ export async function acknowledgeCallSheetRecipient(
   if (error) throw error;
   const [enriched] = await enrichRecipientsWithNames(supabase, [mapCallSheetRecipient(data)]);
   return enriched;
+}
+
+export type UpsertProductionReportContext = {
+  company_id?: string | null;
+  workspace_id?: string | null;
+  user_id?: string | null;
+};
+
+function buildProductionReportRow(
+  report: ProductionReport,
+  context?: UpsertProductionReportContext
+) {
+  const projectId = coerceUuid(report.project_id);
+  if (!projectId) throw new Error("Invalid project_id for production report.");
+
+  return {
+    company_id: context?.company_id ?? report.company_id,
+    workspace_id: context?.workspace_id ?? report.workspace_id ?? null,
+    project_id: projectId,
+    shooting_day_id: coerceUuid(report.shooting_day_id),
+    call_sheet_id: coerceUuid(report.call_sheet_id),
+    report_date: report.report_date,
+    title: report.title ?? null,
+    status: report.status,
+    actual_crew_call_time: report.actual_crew_call_time ?? null,
+    actual_first_shot_time: report.actual_first_shot_time ?? null,
+    actual_wrap_time: report.actual_wrap_time ?? null,
+    meal_break_time: report.meal_break_time ?? null,
+    total_shooting_hours: report.total_shooting_hours ?? null,
+    overtime_notes: report.overtime_notes ?? null,
+    weather_notes: report.weather_notes ?? null,
+    general_notes: report.general_notes ?? null,
+    created_by: context?.user_id ?? report.created_by ?? null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export async function upsertProductionReport(
+  supabase: SupabaseClient,
+  report: ProductionReport,
+  context?: UpsertProductionReportContext
+): Promise<ProductionReport> {
+  const isNew = !UUID_RE.test(report.id);
+  const payload = buildProductionReportRow(report, context);
+
+  const debugContext = {
+    payload,
+    report_local_id: report.id,
+    is_new: isNew,
+    user_id: context?.user_id,
+  };
+
+  if (isNew) {
+    const { data, error } = await supabase
+      .from("production_reports")
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) {
+      logSupabaseError("upsertProductionReport — insert", error, debugContext);
+      throw error;
+    }
+    if (!data?.id) throw new Error("Insert succeeded but no report id returned.");
+    const [enriched] = await enrichProductionReportsWithNames(supabase, [
+      mapProductionReport(data),
+    ]);
+    return enriched;
+  }
+
+  const reportId = coerceUuid(report.id);
+  if (!reportId) throw new Error("Invalid production report id for update.");
+
+  const { data, error } = await supabase
+    .from("production_reports")
+    .update(payload)
+    .eq("id", reportId)
+    .select()
+    .single();
+
+  if (error) {
+    logSupabaseError("upsertProductionReport — update", error, {
+      ...debugContext,
+      report_id: reportId,
+    });
+    throw error;
+  }
+  if (!data?.id) throw new Error("Update succeeded but no report row returned.");
+  const [enriched] = await enrichProductionReportsWithNames(supabase, [
+    mapProductionReport(data),
+  ]);
+  return enriched;
+}
+
+export async function saveProductionReportScenes(
+  supabase: SupabaseClient,
+  reportId: string,
+  scenes: ProductionReportScene[]
+): Promise<ProductionReportScene[]> {
+  const { error: delErr } = await supabase
+    .from("production_report_scenes")
+    .delete()
+    .eq("report_id", reportId);
+  if (delErr) throw delErr;
+
+  if (scenes.length === 0) return [];
+
+  const payload = scenes.map((s) => ({
+    report_id: reportId,
+    scene_id: coerceUuid(s.scene_id),
+    scene_number: s.scene_number ?? null,
+    status: s.status,
+    notes: s.notes ?? null,
+  }));
+
+  const { data, error } = await supabase
+    .from("production_report_scenes")
+    .insert(payload)
+    .select();
+
+  if (error) throw error;
+  return (data ?? []).map(mapProductionReportScene);
+}
+
+export async function saveProductionReportIssues(
+  supabase: SupabaseClient,
+  reportId: string,
+  issues: ProductionReportIssue[],
+  createdBy?: string | null
+): Promise<ProductionReportIssue[]> {
+  const { error: delErr } = await supabase
+    .from("production_report_issues")
+    .delete()
+    .eq("report_id", reportId);
+  if (delErr) throw delErr;
+
+  if (issues.length === 0) return [];
+
+  const payload = issues.map((i) => ({
+    report_id: reportId,
+    category: i.category,
+    department: i.department ?? null,
+    severity: i.severity,
+    title: i.title,
+    description: i.description ?? null,
+    resolved: i.resolved ?? false,
+    notes: i.notes ?? null,
+    created_by: createdBy ?? i.created_by ?? null,
+  }));
+
+  const { data, error } = await supabase
+    .from("production_report_issues")
+    .insert(payload)
+    .select();
+
+  if (error) throw error;
+  return (data ?? []).map(mapProductionReportIssue);
+}
+
+export async function upsertProductionReportDepartmentNote(
+  supabase: SupabaseClient,
+  note: Omit<ProductionReportDepartmentNote, "id" | "created_at" | "updated_at"> & {
+    id?: string;
+  },
+  userId: string
+): Promise<ProductionReportDepartmentNote> {
+  const payload = {
+    report_id: note.report_id,
+    department: note.department,
+    notes: note.notes ?? null,
+    updated_by: userId,
+  };
+
+  const { data, error } = await supabase
+    .from("production_report_department_notes")
+    .upsert(
+      {
+        ...payload,
+        created_by: userId,
+      },
+      { onConflict: "report_id,department" }
+    )
+    .select()
+    .single();
+
+  if (error) throw error;
+  return mapProductionReportDepartmentNote(data);
+}
+
+export async function updateProductionReportWorkflow(
+  supabase: SupabaseClient,
+  reportId: string,
+  action: "submit" | "approve" | "archive",
+  userId: string
+): Promise<ProductionReport> {
+  const ts = new Date().toISOString();
+  const updates: Record<string, unknown> = { updated_at: ts };
+
+  if (action === "submit") {
+    updates.status = "submitted";
+    updates.submitted_by = userId;
+    updates.submitted_at = ts;
+  } else if (action === "approve") {
+    updates.status = "approved";
+    updates.approved_by = userId;
+    updates.approved_at = ts;
+  } else {
+    updates.status = "archived";
+  }
+
+  const { data, error } = await supabase
+    .from("production_reports")
+    .update(updates)
+    .eq("id", reportId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  const [enriched] = await enrichProductionReportsWithNames(supabase, [
+    mapProductionReport(data),
+  ]);
+  return enriched;
+}
+
+export function formatProductionReportSaveError(err: unknown): string {
+  return formatSupabaseError(err);
 }

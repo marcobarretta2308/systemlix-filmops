@@ -23,6 +23,14 @@ import type {
   CallSheetDistribution,
   CallSheetRecipient,
   CallSheetStatus,
+  IssueCategory,
+  IssueSeverity,
+  ProductionReport,
+  ProductionReportDepartmentNote,
+  ProductionReportIssue,
+  ProductionReportScene,
+  ProductionReportStatus,
+  SceneReportStatus,
   CastCrewStatus,
   Complexity,
   DayNight,
@@ -124,6 +132,8 @@ export function mapProjectMember(row: any): ProjectMember {
     can_edit_shooting_days: row.can_edit_shooting_days ?? undefined,
     can_view_call_sheets: row.can_view_call_sheets ?? undefined,
     can_edit_call_sheets: row.can_edit_call_sheets ?? undefined,
+    can_view_production_reports: row.can_view_production_reports ?? undefined,
+    can_edit_production_reports: row.can_edit_production_reports ?? undefined,
     can_view_set_assistant: row.can_view_set_assistant ?? undefined,
     can_manage_access: row.can_manage_access ?? undefined,
     access_status: (row.access_status ?? "active") as AccessStatus,
@@ -361,6 +371,86 @@ export function mapProjectDocument(row: any): ProjectDocument {
     created_at: row.created_at,
     updated_at: row.updated_at ?? row.created_at,
     uploader_name: row.uploader_name ?? undefined,
+  };
+}
+
+export function mapProductionReport(row: any): ProductionReport {
+  return {
+    id: row.id,
+    company_id: row.company_id,
+    workspace_id: row.workspace_id ?? undefined,
+    project_id: row.project_id,
+    shooting_day_id: row.shooting_day_id ?? undefined,
+    call_sheet_id: row.call_sheet_id ?? undefined,
+    report_date: row.report_date,
+    title: row.title ?? undefined,
+    status: (row.status ?? "draft") as ProductionReportStatus,
+    actual_crew_call_time: row.actual_crew_call_time ?? undefined,
+    actual_first_shot_time: row.actual_first_shot_time ?? undefined,
+    actual_wrap_time: row.actual_wrap_time ?? undefined,
+    meal_break_time: row.meal_break_time ?? undefined,
+    total_shooting_hours:
+      row.total_shooting_hours != null
+        ? Number(row.total_shooting_hours)
+        : undefined,
+    overtime_notes: row.overtime_notes ?? undefined,
+    weather_notes: row.weather_notes ?? undefined,
+    general_notes: row.general_notes ?? undefined,
+    created_by: row.created_by ?? undefined,
+    submitted_by: row.submitted_by ?? undefined,
+    submitted_at: row.submitted_at ?? undefined,
+    approved_by: row.approved_by ?? undefined,
+    approved_at: row.approved_at ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? row.created_at,
+    creator_name: row.creator_name ?? undefined,
+    submitter_name: row.submitter_name ?? undefined,
+    approver_name: row.approver_name ?? undefined,
+  };
+}
+
+export function mapProductionReportScene(row: any): ProductionReportScene {
+  return {
+    id: row.id,
+    report_id: row.report_id,
+    scene_id: row.scene_id ?? undefined,
+    scene_number: row.scene_number ?? undefined,
+    status: (row.status ?? "completed") as SceneReportStatus,
+    notes: row.notes ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? row.created_at,
+  };
+}
+
+export function mapProductionReportIssue(row: any): ProductionReportIssue {
+  return {
+    id: row.id,
+    report_id: row.report_id,
+    category: row.category as IssueCategory,
+    department: row.department ?? undefined,
+    severity: (row.severity ?? "medium") as IssueSeverity,
+    title: row.title,
+    description: row.description ?? undefined,
+    resolved: row.resolved ?? false,
+    notes: row.notes ?? undefined,
+    created_by: row.created_by ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? row.created_at,
+  };
+}
+
+export function mapProductionReportDepartmentNote(
+  row: any
+): ProductionReportDepartmentNote {
+  return {
+    id: row.id,
+    report_id: row.report_id,
+    department: row.department,
+    notes: row.notes ?? undefined,
+    created_by: row.created_by ?? undefined,
+    updated_by: row.updated_by ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? row.created_at,
   };
 }
 

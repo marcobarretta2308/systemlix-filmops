@@ -135,6 +135,8 @@ export interface ProjectMember {
   can_edit_shooting_days?: boolean;
   can_view_call_sheets?: boolean;
   can_edit_call_sheets?: boolean;
+  can_view_production_reports?: boolean;
+  can_edit_production_reports?: boolean;
   can_view_set_assistant?: boolean;
   can_manage_access?: boolean;
   access_status: AccessStatus;
@@ -322,6 +324,97 @@ export interface CallSheetRecipient {
   created_at: string;
   updated_at: string;
   recipient_name?: string;
+}
+
+export type ProductionReportStatus =
+  | "draft"
+  | "submitted"
+  | "approved"
+  | "archived";
+
+export type SceneReportStatus =
+  | "completed"
+  | "partially_completed"
+  | "postponed"
+  | "cancelled";
+
+export type IssueCategory =
+  | "delay"
+  | "missing_prop"
+  | "cast_issue"
+  | "location_issue"
+  | "weather_issue"
+  | "technical_issue"
+  | "safety_issue"
+  | "other";
+
+export type IssueSeverity = "low" | "medium" | "high" | "critical";
+
+export interface ProductionReport {
+  id: string;
+  company_id: string;
+  workspace_id?: string;
+  project_id: string;
+  shooting_day_id?: string;
+  call_sheet_id?: string;
+  report_date: string;
+  title?: string;
+  status: ProductionReportStatus;
+  actual_crew_call_time?: string;
+  actual_first_shot_time?: string;
+  actual_wrap_time?: string;
+  meal_break_time?: string;
+  total_shooting_hours?: number;
+  overtime_notes?: string;
+  weather_notes?: string;
+  general_notes?: string;
+  created_by?: string;
+  submitted_by?: string;
+  submitted_at?: string;
+  approved_by?: string;
+  approved_at?: string;
+  created_at: string;
+  updated_at: string;
+  creator_name?: string;
+  submitter_name?: string;
+  approver_name?: string;
+}
+
+export interface ProductionReportScene {
+  id: string;
+  report_id: string;
+  scene_id?: string;
+  scene_number?: string;
+  status: SceneReportStatus;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductionReportIssue {
+  id: string;
+  report_id: string;
+  category: IssueCategory;
+  department?: string;
+  severity: IssueSeverity;
+  title: string;
+  description?: string;
+  resolved: boolean;
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductionReportDepartmentNote {
+  id: string;
+  report_id: string;
+  department: string;
+  notes?: string;
+  created_by?: string;
+  updated_by?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ProjectDocument {

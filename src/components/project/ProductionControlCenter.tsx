@@ -13,6 +13,7 @@ import { ProjectSetupChecklist } from "@/components/project/ProjectSetupChecklis
 import { QuickActionsBar } from "@/components/project/QuickActionsBar";
 import { canSendCallSheet } from "@/lib/call-sheets/permissions";
 import { normalizeCallSheetStatus } from "@/lib/call-sheets/constants";
+import { PRODUCTION_REPORT_STATUS_LABELS } from "@/lib/production-reports/constants";
 import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
 import {
   canUploadDocuments,
@@ -33,6 +34,7 @@ import { computeProjectSetupChecklist } from "@/lib/utils/project-setup-checklis
 import {
   Calendar,
   Clapperboard,
+  ClipboardList,
   FileText,
   FolderOpen,
   Loader2,
@@ -79,6 +81,7 @@ export function ProductionControlCenter({
     locations,
     shootingDays,
     callSheets,
+    productionReports,
     callSheetDistributions,
     callSheetRecipients,
     documents,
@@ -137,6 +140,7 @@ export function ProductionControlCenter({
       locations: locations.length,
       shootingDays: shootingDays.length,
       callSheets: callSheets.length,
+      productionReports: productionReports.length,
       documents: visibleDocuments.length,
     },
     projectPermissions,
@@ -168,6 +172,14 @@ export function ProductionControlCenter({
     companyRole,
     projectRole
   );
+
+  const latestReport = [...productionReports].sort(
+    (a, b) =>
+      new Date(b.report_date).getTime() - new Date(a.report_date).getTime()
+  )[0];
+  const pendingReports = productionReports.filter(
+    (r) => r.status === "draft" || r.status === "submitted"
+  ).length;
 
   if (isLoadingProjectData) {
     return (
@@ -222,6 +234,14 @@ export function ProductionControlCenter({
               value={callSheets.length}
               icon={FileText}
               href={`/projects/${projectId}/call-sheets`}
+            />
+          )}
+          {projectPermissions.can_view_production_reports && (
+            <StatCard
+              label="Wrap reports"
+              value={productionReports.length}
+              icon={ClipboardList}
+              href={`/projects/${projectId}/production-reports`}
             />
           )}
         </div>
@@ -352,6 +372,29 @@ export function ProductionControlCenter({
             </p>
           )}
 
+          {latestReport && projectPermissions.can_view_production_reports && (
+            <div className="mt-4 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-white/[0.02] px-4 py-3">
+              <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--text-muted)]">
+                Latest production report
+              </p>
+              <p className="mt-1 text-[14px] text-[var(--text-primary)]">
+                {latestReport.title ?? formatShootDay(latestReport.report_date)}
+              </p>
+              <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
+                {PRODUCTION_REPORT_STATUS_LABELS[latestReport.status]}
+                {pendingReports > 0
+                  ? ` · ${pendingReports} pending`
+                  : ""}
+              </p>
+              <Link
+                href={`/projects/${projectId}/production-reports?report=${latestReport.id}`}
+                className="mt-2 inline-block text-[12px] text-[var(--accent-cyan)] hover:underline"
+              >
+                View report
+              </Link>
+            </div>
+          )}
+
           {latestSentSheet && latestSentDistribution && (
             <div className="mt-4 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-white/[0.02] px-4 py-3">
               <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--text-muted)]">
@@ -400,6 +443,22 @@ export function ProductionControlCenter({
         )}
         {projectPermissions.can_view_call_sheets && (
           <StatCard label="Call sheets" value={callSheets.length} icon={FileText} href={`/projects/${projectId}/call-sheets`} />
+        )}
+        {projectPermissions.can_view_production_reports && (
+          <StatCard
+            label="Wrap reports"
+            value={productionReports.length}
+            icon={ClipboardList}
+            href={`/projects/${projectId}/production-reports`}
+          />
+        )}
+        {projectPermissions.can_view_production_reports && pendingReports > 0 && (
+          <StatCard
+            label="Pending reports"
+            value={pendingReports}
+            icon={ClipboardList}
+            href={`/projects/${projectId}/production-reports`}
+          />
         )}
         {projectPermissions.can_view_call_sheets && sentDistributions.length > 0 && (
           <StatCard

@@ -32,6 +32,7 @@ export function buildModuleCards(
     locations: number;
     shootingDays: number;
     callSheets: number;
+    productionReports: number;
     documents: number;
   },
   permissions: ProjectPermissions,
@@ -103,6 +104,16 @@ export function buildModuleCards(
       emptyDescription:
         "Plan a shooting day, then generate and export your first call sheet.",
       visible: permissions.can_view_call_sheets,
+    },
+    {
+      key: "production-reports",
+      label: "Production Reports",
+      href: `${base}/production-reports`,
+      count: counts.productionReports,
+      emptyTitle: "No wrap reports yet",
+      emptyDescription:
+        "Document end-of-day timings, scene status and issues after each shoot.",
+      visible: permissions.can_view_production_reports,
     },
     {
       key: "assistant",

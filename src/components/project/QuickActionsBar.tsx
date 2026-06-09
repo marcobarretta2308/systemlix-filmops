@@ -7,6 +7,7 @@ import type { DashboardViewMode } from "@/lib/utils/project-dashboard";
 import {
   Bot,
   Calendar,
+  ClipboardList,
   FileText,
   MapPin,
   ScrollText,
@@ -71,6 +72,14 @@ export function QuickActionsBar({
       icon: FileText,
       visible:
         permissions.can_edit_call_sheets || permissions.can_view_call_sheets,
+    },
+    {
+      label: "Create Production Report",
+      href: `${base}/production-reports`,
+      icon: ClipboardList,
+      visible:
+        permissions.can_edit_production_reports ||
+        permissions.can_view_production_reports,
     },
     {
       label: "Send latest call sheet",

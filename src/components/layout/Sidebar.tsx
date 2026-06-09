@@ -15,6 +15,7 @@ import {
   Building2,
   Calendar,
   Clapperboard,
+  ClipboardList,
   FileText,
   FolderOpen,
   FolderKanban,
@@ -101,6 +102,13 @@ function projectNav(
       label: "Call Sheet",
       icon: FileText,
       visible: (p) => p.can_view_call_sheets,
+    },
+    {
+      key: "production-reports",
+      href: `/projects/${projectId}/production-reports`,
+      label: "Production Reports",
+      icon: ClipboardList,
+      visible: (p) => p.can_view_production_reports,
     },
     {
       key: "set-assistant",

@@ -29,6 +29,10 @@ import type {
   CallSheetDistribution,
   CallSheetRecipient,
   CastCrew,
+  ProductionReport,
+  ProductionReportDepartmentNote,
+  ProductionReportIssue,
+  ProductionReportScene,
   Company,
   CompanyMember,
   CompanyRole,
@@ -147,6 +151,24 @@ interface ProjectContextValue {
   saveCallSheet: (
     sheet: CallSheet
   ) => Promise<{ sheet: CallSheet | null; error: string | null }>;
+  saveProductionReport: (
+    report: ProductionReport,
+    options?: {
+      scenes?: ProductionReportScene[];
+      issues?: ProductionReportIssue[];
+    }
+  ) => Promise<{ report: ProductionReport | null; error: string | null }>;
+  saveProductionReportDepartmentNote: (
+    reportId: string,
+    department: string,
+    notes: string
+  ) => Promise<{ note: ProductionReportDepartmentNote | null; error: string | null }>;
+  submitProductionReport: (
+    reportId: string
+  ) => Promise<{ report: ProductionReport | null; error: string | null }>;
+  approveProductionReport: (
+    reportId: string
+  ) => Promise<{ report: ProductionReport | null; error: string | null }>;
   saveBreakdownToProject: (
     scenes: Scene[],
     projectId?: string
@@ -178,6 +200,11 @@ interface ProjectContextValue {
   callSheetDistributions: CallSheetDistribution[];
   callSheetRecipients: CallSheetRecipient[];
   refreshCallSheetDistribution: () => Promise<void>;
+  productionReports: ProductionReport[];
+  productionReportScenes: ProductionReportScene[];
+  productionReportIssues: ProductionReportIssue[];
+  productionReportDeptNotes: ProductionReportDepartmentNote[];
+  refreshProductionReports: () => Promise<void>;
   refreshProjectMembers: () => Promise<ProjectMember[]>;
   assistantRole: SetAssistantRole;
   setAssistantRole: (role: SetAssistantRole) => void;
@@ -349,6 +376,17 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [callSheetRecipients, setCallSheetRecipients] = useState<
     CallSheetRecipient[]
   >([]);
+  const [productionReports, setProductionReportsState] = useState<
+    ProductionReport[]
+  >([]);
+  const [productionReportScenes, setProductionReportScenesState] = useState<
+    ProductionReportScene[]
+  >([]);
+  const [productionReportIssues, setProductionReportIssuesState] = useState<
+    ProductionReportIssue[]
+  >([]);
+  const [productionReportDeptNotes, setProductionReportDeptNotesState] =
+    useState<ProductionReportDepartmentNote[]>([]);
 
   const [activeCompanyId, setActiveCompanyId] = useState<string | null>(null);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
@@ -626,6 +664,23 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         setCallSheetRecipients((prev) => [
           ...prev.filter((r) => r.project_id !== projectId),
           ...data.recipients,
+        ]);
+        setProductionReportsState((prev) => [
+          ...prev.filter((r) => r.project_id !== projectId),
+          ...data.productionReports,
+        ]);
+        const reportIds = new Set(data.productionReports.map((r) => r.id));
+        setProductionReportScenesState((prev) => [
+          ...prev.filter((s) => !reportIds.has(s.report_id)),
+          ...data.productionReportScenes,
+        ]);
+        setProductionReportIssuesState((prev) => [
+          ...prev.filter((i) => !reportIds.has(i.report_id)),
+          ...data.productionReportIssues,
+        ]);
+        setProductionReportDeptNotesState((prev) => [
+          ...prev.filter((n) => !reportIds.has(n.report_id)),
+          ...data.productionReportDeptNotes,
         ]);
         if (data.callSheets[0]) {
           setActiveCallSheetId(data.callSheets[0].id);
@@ -981,6 +1036,52 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     () => filterByProject(callSheetRecipients, activeProjectId),
     [callSheetRecipients, activeProjectId]
   );
+
+  const projectProductionReports = useMemo(
+    () => filterByProject(productionReports, activeProjectId),
+    [productionReports, activeProjectId]
+  );
+
+  const projectProductionReportScenes = useMemo(() => {
+    const ids = new Set(projectProductionReports.map((r) => r.id));
+    return productionReportScenes.filter((s) => ids.has(s.report_id));
+  }, [productionReportScenes, projectProductionReports]);
+
+  const projectProductionReportIssues = useMemo(() => {
+    const ids = new Set(projectProductionReports.map((r) => r.id));
+    return productionReportIssues.filter((i) => ids.has(i.report_id));
+  }, [productionReportIssues, projectProductionReports]);
+
+  const projectProductionReportDeptNotes = useMemo(() => {
+    const ids = new Set(projectProductionReports.map((r) => r.id));
+    return productionReportDeptNotes.filter((n) => ids.has(n.report_id));
+  }, [productionReportDeptNotes, projectProductionReports]);
+
+  const refreshProductionReports = useCallback(async () => {
+    if (!supabase || !activeProjectId) return;
+    try {
+      const data = await db.fetchProjectData(supabase, activeProjectId);
+      setProductionReportsState((prev) => [
+        ...prev.filter((r) => r.project_id !== activeProjectId),
+        ...data.productionReports,
+      ]);
+      const reportIds = new Set(data.productionReports.map((r) => r.id));
+      setProductionReportScenesState((prev) => [
+        ...prev.filter((s) => !reportIds.has(s.report_id)),
+        ...data.productionReportScenes,
+      ]);
+      setProductionReportIssuesState((prev) => [
+        ...prev.filter((i) => !reportIds.has(i.report_id)),
+        ...data.productionReportIssues,
+      ]);
+      setProductionReportDeptNotesState((prev) => [
+        ...prev.filter((n) => !reportIds.has(n.report_id)),
+        ...data.productionReportDeptNotes,
+      ]);
+    } catch (err) {
+      console.error("[FilmOps] refreshProductionReports error:", err);
+    }
+  }, [supabase, activeProjectId]);
 
   const refreshCallSheetDistribution = useCallback(async () => {
     if (!supabase || !activeProjectId) return;
@@ -1536,6 +1637,142 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     [supabase, projects, activeCompanyId, activeWorkspaceId, currentUserId]
   );
 
+  const saveProductionReport = useCallback(
+    async (
+      report: ProductionReport,
+      options?: {
+        scenes?: ProductionReportScene[];
+        issues?: ProductionReportIssue[];
+      }
+    ) => {
+      if (!supabase) {
+        return { report: null, error: "Supabase not configured" };
+      }
+      try {
+        const activeProject = projects.find((p) => p.id === report.project_id);
+        const saved = await db.upsertProductionReport(supabase, report, {
+          company_id: activeProject?.company_id ?? activeCompanyId,
+          workspace_id: activeProject?.workspace_id ?? activeWorkspaceId,
+          user_id: currentUserId,
+        });
+
+        if (options?.scenes) {
+          const scenes = await db.saveProductionReportScenes(
+            supabase,
+            saved.id,
+            options.scenes.map((s) => ({ ...s, report_id: saved.id }))
+          );
+          setProductionReportScenesState((prev) => [
+            ...prev.filter((s) => s.report_id !== saved.id),
+            ...scenes,
+          ]);
+        }
+
+        if (options?.issues) {
+          const issues = await db.saveProductionReportIssues(
+            supabase,
+            saved.id,
+            options.issues.map((i) => ({ ...i, report_id: saved.id })),
+            currentUserId
+          );
+          setProductionReportIssuesState((prev) => [
+            ...prev.filter((i) => i.report_id !== saved.id),
+            ...issues,
+          ]);
+        }
+
+        setProductionReportsState((prev) => {
+          const withoutStale = prev.filter((r) => r.id !== report.id);
+          const exists = withoutStale.some((r) => r.id === saved.id);
+          return exists
+            ? withoutStale.map((r) => (r.id === saved.id ? saved : r))
+            : [...withoutStale, saved];
+        });
+
+        return { report: saved, error: null };
+      } catch (err) {
+        const message = db.formatProductionReportSaveError(err);
+        console.error("[FilmOps] saveProductionReport failed:", message);
+        return { report: null, error: message };
+      }
+    },
+    [supabase, projects, activeCompanyId, activeWorkspaceId, currentUserId]
+  );
+
+  const saveProductionReportDepartmentNote = useCallback(
+    async (reportId: string, department: string, notes: string) => {
+      if (!supabase || !currentUserId) {
+        return { note: null, error: "Sessione non disponibile" };
+      }
+      try {
+        const note = await db.upsertProductionReportDepartmentNote(
+          supabase,
+          { report_id: reportId, department, notes },
+          currentUserId
+        );
+        setProductionReportDeptNotesState((prev) => {
+          const other = prev.filter(
+            (n) => !(n.report_id === reportId && n.department === department)
+          );
+          return [...other, note];
+        });
+        return { note, error: null };
+      } catch (err) {
+        const message = db.formatProductionReportSaveError(err);
+        return { note: null, error: message };
+      }
+    },
+    [supabase, currentUserId]
+  );
+
+  const submitProductionReport = useCallback(
+    async (reportId: string) => {
+      if (!supabase || !currentUserId) {
+        return { report: null, error: "Sessione non disponibile" };
+      }
+      try {
+        const saved = await db.updateProductionReportWorkflow(
+          supabase,
+          reportId,
+          "submit",
+          currentUserId
+        );
+        setProductionReportsState((prev) =>
+          prev.map((r) => (r.id === saved.id ? saved : r))
+        );
+        return { report: saved, error: null };
+      } catch (err) {
+        const message = db.formatProductionReportSaveError(err);
+        return { report: null, error: message };
+      }
+    },
+    [supabase, currentUserId]
+  );
+
+  const approveProductionReport = useCallback(
+    async (reportId: string) => {
+      if (!supabase || !currentUserId) {
+        return { report: null, error: "Sessione non disponibile" };
+      }
+      try {
+        const saved = await db.updateProductionReportWorkflow(
+          supabase,
+          reportId,
+          "approve",
+          currentUserId
+        );
+        setProductionReportsState((prev) =>
+          prev.map((r) => (r.id === saved.id ? saved : r))
+        );
+        return { report: saved, error: null };
+      } catch (err) {
+        const message = db.formatProductionReportSaveError(err);
+        return { report: null, error: message };
+      }
+    },
+    [supabase, currentUserId]
+  );
+
   const saveBreakdownToProject = useCallback(
     async (scenes: Scene[], explicitProjectId?: string) => {
       const projectId = explicitProjectId ?? activeProjectId;
@@ -1796,6 +2033,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       addLocation,
       addShootingDay,
       saveCallSheet,
+      saveProductionReport,
+      saveProductionReportDepartmentNote,
+      submitProductionReport,
+      approveProductionReport,
       saveBreakdownToProject,
       canReactivateProject: companyRole
         ? canReactivateProject(user, companyRole)
@@ -1849,6 +2090,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       callSheetDistributions: projectDistributions,
       callSheetRecipients: projectRecipients,
       refreshCallSheetDistribution,
+      productionReports: projectProductionReports,
+      productionReportScenes: projectProductionReportScenes,
+      productionReportIssues: projectProductionReportIssues,
+      productionReportDeptNotes: projectProductionReportDeptNotes,
+      refreshProductionReports,
       refreshProjectMembers,
       assistantRole,
       setAssistantRole,
@@ -1877,6 +2123,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       addLocation,
       addShootingDay,
       saveCallSheet,
+      saveProductionReport,
+      saveProductionReportDepartmentNote,
+      submitProductionReport,
+      approveProductionReport,
       saveBreakdownToProject,
       companyRole,
       user,
@@ -1903,6 +2153,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       projectDistributions,
       projectRecipients,
       refreshCallSheetDistribution,
+      projectProductionReports,
+      projectProductionReportScenes,
+      projectProductionReportIssues,
+      projectProductionReportDeptNotes,
+      refreshProductionReports,
       refreshProjectMembers,
       assistantRole,
       projectDataLoading,

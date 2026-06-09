@@ -31,6 +31,8 @@ export interface ProjectPermissions {
   can_edit_shooting_days: boolean;
   can_view_call_sheets: boolean;
   can_edit_call_sheets: boolean;
+  can_view_production_reports: boolean;
+  can_edit_production_reports: boolean;
   can_view_set_assistant: boolean;
   can_manage_access: boolean;
 }
@@ -49,6 +51,8 @@ const ALL_TRUE: ProjectPermissions = {
   can_edit_shooting_days: true,
   can_view_call_sheets: true,
   can_edit_call_sheets: true,
+  can_view_production_reports: true,
+  can_edit_production_reports: true,
   can_view_set_assistant: true,
   can_manage_access: true,
 };
@@ -72,6 +76,8 @@ function base(
     can_edit_shooting_days: false,
     can_view_call_sheets: false,
     can_edit_call_sheets: false,
+    can_view_production_reports: false,
+    can_edit_production_reports: false,
     can_view_set_assistant: false,
     can_manage_access: false,
     ...flags,
@@ -107,6 +113,8 @@ export function getDefaultProjectPermissions(
         can_edit_shooting_days: true,
         can_view_call_sheets: true,
         can_edit_call_sheets: true,
+        can_view_production_reports: true,
+        can_edit_production_reports: true,
         can_view_set_assistant: true,
         can_manage_access: true,
       });
@@ -124,6 +132,8 @@ export function getDefaultProjectPermissions(
         can_edit_shooting_days: true,
         can_view_call_sheets: true,
         can_edit_call_sheets: true,
+        can_view_production_reports: true,
+        can_edit_production_reports: true,
         can_view_set_assistant: true,
       });
     case "assistant_director":
@@ -137,6 +147,8 @@ export function getDefaultProjectPermissions(
         can_edit_shooting_days: true,
         can_view_call_sheets: true,
         can_edit_call_sheets: true,
+        can_view_production_reports: true,
+        can_edit_production_reports: true,
         can_view_set_assistant: true,
       });
     case "department_user": {
@@ -148,6 +160,7 @@ export function getDefaultProjectPermissions(
           can_view_locations: true,
           can_view_shooting_days: true,
           can_view_call_sheets: true,
+          can_view_production_reports: true,
           can_view_set_assistant: true,
         });
       }
@@ -157,6 +170,7 @@ export function getDefaultProjectPermissions(
           can_view_cast_crew: true,
           can_view_shooting_days: true,
           can_view_call_sheets: true,
+          can_view_production_reports: true,
           can_view_set_assistant: true,
         });
       }
@@ -165,6 +179,7 @@ export function getDefaultProjectPermissions(
           can_view_scenes: true,
           can_view_locations: true,
           can_view_call_sheets: true,
+          can_view_production_reports: true,
           can_view_set_assistant: true,
         });
       }
@@ -174,6 +189,7 @@ export function getDefaultProjectPermissions(
           can_view_locations: true,
           can_view_shooting_days: true,
           can_view_call_sheets: true,
+          can_view_production_reports: true,
           can_view_set_assistant: true,
         });
       }
@@ -182,6 +198,7 @@ export function getDefaultProjectPermissions(
           can_view_locations: true,
           can_view_shooting_days: true,
           can_view_call_sheets: true,
+          can_view_production_reports: true,
           can_view_set_assistant: true,
         });
       }
@@ -189,6 +206,7 @@ export function getDefaultProjectPermissions(
         department: dept,
         can_view_scenes: true,
         can_view_call_sheets: true,
+        can_view_production_reports: true,
         can_view_set_assistant: true,
         can_view_cast_crew: true,
       });
@@ -196,6 +214,7 @@ export function getDefaultProjectPermissions(
     case "cast_crew_user":
       return base("cast_crew", {
         can_view_call_sheets: true,
+        can_view_production_reports: true,
         can_view_set_assistant: true,
         can_view_shooting_days: true,
       });
@@ -203,6 +222,7 @@ export function getDefaultProjectPermissions(
       return base("viewer", {
         can_view_scenes: true,
         can_view_call_sheets: true,
+        can_view_production_reports: true,
       });
     default:
       return base("viewer", { can_view_scenes: true });
@@ -238,6 +258,10 @@ export function permissionsFromMember(
     can_edit_shooting_days: member.can_edit_shooting_days ?? false,
     can_view_call_sheets: member.can_view_call_sheets ?? false,
     can_edit_call_sheets: member.can_edit_call_sheets ?? false,
+    can_view_production_reports:
+      member.can_view_production_reports ?? false,
+    can_edit_production_reports:
+      member.can_edit_production_reports ?? false,
     can_view_set_assistant: member.can_view_set_assistant ?? false,
     can_manage_access: member.can_manage_access ?? false,
   };
@@ -283,6 +307,8 @@ export function projectMemberPermissionPayload(
     can_edit_shooting_days: defaults.can_edit_shooting_days,
     can_view_call_sheets: defaults.can_view_call_sheets,
     can_edit_call_sheets: defaults.can_edit_call_sheets,
+    can_view_production_reports: defaults.can_view_production_reports,
+    can_edit_production_reports: defaults.can_edit_production_reports,
     can_view_set_assistant: defaults.can_view_set_assistant,
     can_manage_access: defaults.can_manage_access,
   };
@@ -305,6 +331,7 @@ const COSTUMI_NAV_KEYS = new Set([
   "department",
   "scenes",
   "call-sheets",
+  "production-reports",
   "set-assistant",
   "documents",
 ]);
