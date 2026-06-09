@@ -26,6 +26,8 @@ import {
 import type {
   ArchiveAction,
   CallSheet,
+  CallSheetDistribution,
+  CallSheetRecipient,
   CastCrew,
   Company,
   CompanyMember,
@@ -33,6 +35,7 @@ import type {
   Location,
   Project,
   ProjectArchiveLog,
+  ProjectDocument,
   ProjectMember,
   ProjectRole,
   ProjectStatus,
@@ -141,7 +144,9 @@ interface ProjectContextValue {
   addShootingDay: (
     day: Omit<ShootingDay, "id" | "created_at" | "project_id">
   ) => Promise<ShootingDay | null>;
-  saveCallSheet: (sheet: CallSheet) => Promise<CallSheet | null>;
+  saveCallSheet: (
+    sheet: CallSheet
+  ) => Promise<{ sheet: CallSheet | null; error: string | null }>;
   saveBreakdownToProject: (
     scenes: Scene[],
     projectId?: string
@@ -168,11 +173,18 @@ interface ProjectContextValue {
   setBreakdownScenes: React.Dispatch<React.SetStateAction<Scene[]>>;
   updateBreakdownScene: (id: string, updates: Partial<Scene>) => void;
   archiveLogs: ProjectArchiveLog[];
+  documents: ProjectDocument[];
+  refreshDocuments: () => Promise<void>;
+  callSheetDistributions: CallSheetDistribution[];
+  callSheetRecipients: CallSheetRecipient[];
+  refreshCallSheetDistribution: () => Promise<void>;
+  refreshProjectMembers: () => Promise<ProjectMember[]>;
   assistantRole: SetAssistantRole;
   setAssistantRole: (role: SetAssistantRole) => void;
   isLoadingProjectData: boolean;
   refreshProjectData: () => Promise<void>;
   activeProjectMembership: ProjectMember | null;
+  activeProjectTeamMembers: ProjectMember[];
   canManageAccess: boolean;
 }
 
@@ -330,6 +342,13 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [shootingDays, setShootingDaysState] = useState<ShootingDay[]>([]);
   const [callSheets, setCallSheetsState] = useState<CallSheet[]>([]);
   const [archiveLogs, setArchiveLogs] = useState<ProjectArchiveLog[]>([]);
+  const [projectDocuments, setProjectDocuments] = useState<ProjectDocument[]>([]);
+  const [callSheetDistributions, setCallSheetDistributions] = useState<
+    CallSheetDistribution[]
+  >([]);
+  const [callSheetRecipients, setCallSheetRecipients] = useState<
+    CallSheetRecipient[]
+  >([]);
 
   const [activeCompanyId, setActiveCompanyId] = useState<string | null>(null);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
@@ -596,6 +615,18 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           ...prev.filter((l) => l.project_id !== projectId),
           ...data.archiveLogs,
         ]);
+        setProjectDocuments((prev) => [
+          ...prev.filter((d) => d.project_id !== projectId),
+          ...data.documents,
+        ]);
+        setCallSheetDistributions((prev) => [
+          ...prev.filter((d) => d.project_id !== projectId),
+          ...data.distributions,
+        ]);
+        setCallSheetRecipients((prev) => [
+          ...prev.filter((r) => r.project_id !== projectId),
+          ...data.recipients,
+        ]);
         if (data.callSheets[0]) {
           setActiveCallSheetId(data.callSheets[0].id);
         }
@@ -619,6 +650,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     setShootingDaysState([]);
     setCallSheetsState([]);
     setArchiveLogs([]);
+    setProjectDocuments([]);
+    setCallSheetDistributions([]);
+    setCallSheetRecipients([]);
     setActiveCompanyId(null);
     setActiveWorkspaceId(null);
     setActiveProjectId(null);
@@ -808,6 +842,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     );
   }, [projectMembers, currentUserId, activeProjectId]);
 
+  const activeProjectTeamMembers = useMemo(() => {
+    if (!activeProjectId) return [];
+    return projectMembers.filter((m) => m.project_id === activeProjectId);
+  }, [projectMembers, activeProjectId]);
+
   const accessibleProjectsAll = useMemo(() => {
     if (!activeCompanyId) return [];
     const isAdmin =
@@ -914,6 +953,73 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     () => filterByProject(archiveLogs, activeProjectId),
     [archiveLogs, activeProjectId]
   );
+
+  const projectDocumentsFiltered = useMemo(
+    () => filterByProject(projectDocuments, activeProjectId),
+    [projectDocuments, activeProjectId]
+  );
+
+  const refreshDocuments = useCallback(async () => {
+    if (!supabase || !activeProjectId) return;
+    try {
+      const data = await db.fetchProjectData(supabase, activeProjectId);
+      setProjectDocuments((prev) => [
+        ...prev.filter((d) => d.project_id !== activeProjectId),
+        ...data.documents,
+      ]);
+    } catch (err) {
+      console.error("[FilmOps] refreshDocuments error:", err);
+    }
+  }, [supabase, activeProjectId]);
+
+  const projectDistributions = useMemo(
+    () => filterByProject(callSheetDistributions, activeProjectId),
+    [callSheetDistributions, activeProjectId]
+  );
+
+  const projectRecipients = useMemo(
+    () => filterByProject(callSheetRecipients, activeProjectId),
+    [callSheetRecipients, activeProjectId]
+  );
+
+  const refreshCallSheetDistribution = useCallback(async () => {
+    if (!supabase || !activeProjectId) return;
+    try {
+      const data = await db.fetchProjectData(supabase, activeProjectId);
+      setCallSheetsState((prev) => [
+        ...prev.filter((c) => c.project_id !== activeProjectId),
+        ...data.callSheets,
+      ]);
+      setCallSheetDistributions((prev) => [
+        ...prev.filter((d) => d.project_id !== activeProjectId),
+        ...data.distributions,
+      ]);
+      setCallSheetRecipients((prev) => [
+        ...prev.filter((r) => r.project_id !== activeProjectId),
+        ...data.recipients,
+      ]);
+    } catch (err) {
+      console.error("[FilmOps] refreshCallSheetDistribution error:", err);
+    }
+  }, [supabase, activeProjectId]);
+
+  const refreshProjectMembers = useCallback(async (): Promise<ProjectMember[]> => {
+    if (!supabase || !activeProjectId) return [];
+    try {
+      const members = await db.fetchProjectMembersForProject(
+        supabase,
+        activeProjectId
+      );
+      setProjectMembers((prev) => [
+        ...prev.filter((m) => m.project_id !== activeProjectId),
+        ...members,
+      ]);
+      return members;
+    } catch (err) {
+      console.error("[FilmOps] refreshProjectMembers error:", err);
+      return [];
+    }
+  }, [supabase, activeProjectId]);
 
   const breakdownScenes = useMemo(
     () => (activeProjectId ? breakdownByProject[activeProjectId] ?? [] : []),
@@ -1402,22 +1508,32 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
 
   const saveCallSheet = useCallback(
     async (sheet: CallSheet) => {
-      if (!supabase) return null;
+      if (!supabase) {
+        return { sheet: null, error: "Supabase not configured" };
+      }
       try {
-        const saved = await db.upsertCallSheet(supabase, sheet);
+        const activeProject = projects.find((p) => p.id === sheet.project_id);
+        const saved = await db.upsertCallSheet(supabase, sheet, {
+          company_id: activeProject?.company_id ?? activeCompanyId,
+          workspace_id: activeProject?.workspace_id ?? activeWorkspaceId,
+          user_id: currentUserId,
+        });
         setCallSheetsState((prev) => {
-          const exists = prev.some((c) => c.id === saved.id);
+          const withoutStale = prev.filter((c) => c.id !== sheet.id);
+          const exists = withoutStale.some((c) => c.id === saved.id);
           return exists
-            ? prev.map((c) => (c.id === saved.id ? saved : c))
-            : [...prev, saved];
+            ? withoutStale.map((c) => (c.id === saved.id ? saved : c))
+            : [...withoutStale, saved];
         });
         setActiveCallSheetId(saved.id);
-        return saved;
-      } catch {
-        return null;
+        return { sheet: saved, error: null };
+      } catch (err) {
+        const message = db.formatCallSheetSaveError(err);
+        console.error("[FilmOps] saveCallSheet failed:", message);
+        return { sheet: null, error: message };
       }
     },
-    [supabase]
+    [supabase, projects, activeCompanyId, activeWorkspaceId, currentUserId]
   );
 
   const saveBreakdownToProject = useCallback(
@@ -1728,11 +1844,18 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setBreakdownScenes,
       updateBreakdownScene,
       archiveLogs: projectArchiveLogs,
+      documents: projectDocumentsFiltered,
+      refreshDocuments,
+      callSheetDistributions: projectDistributions,
+      callSheetRecipients: projectRecipients,
+      refreshCallSheetDistribution,
+      refreshProjectMembers,
       assistantRole,
       setAssistantRole,
       isLoadingProjectData: projectDataLoading,
       refreshProjectData,
       activeProjectMembership,
+      activeProjectTeamMembers,
     }),
     [
       activeProject,
@@ -1775,10 +1898,17 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setBreakdownScenes,
       updateBreakdownScene,
       projectArchiveLogs,
+      projectDocumentsFiltered,
+      refreshDocuments,
+      projectDistributions,
+      projectRecipients,
+      refreshCallSheetDistribution,
+      refreshProjectMembers,
       assistantRole,
       projectDataLoading,
       refreshProjectData,
       activeProjectMembership,
+      activeProjectTeamMembers,
     ]
   );
 

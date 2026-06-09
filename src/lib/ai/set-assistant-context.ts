@@ -27,9 +27,12 @@ const UUID_RE =
 
 const STATUS_LABELS: Record<CallSheetStatus, string> = {
   draft: "Bozza",
-  final: "Finale",
-  locked: "Bloccato",
-  archived: "Archiviato",
+  ready_for_approval: "Pronta per approvazione",
+  approved: "Approvata",
+  sent: "Inviata",
+  archived: "Archiviata",
+  final: "Pronta per approvazione",
+  locked: "Approvata",
 };
 
 const COMPLEXITY_LABELS: Record<Complexity, string> = {

@@ -3,12 +3,15 @@ import { REVOKABLE_PROJECT_ROLES } from "@/lib/access-control";
 import type {
   ArchiveAction,
   CallSheet,
+  CallSheetDistribution,
+  CallSheetRecipient,
   CastCrew,
   Company,
   CompanyMember,
   Location,
   Project,
   ProjectArchiveLog,
+  ProjectDocument,
   ProjectMember,
   ProjectRole,
   ProjectStatus,
@@ -20,7 +23,10 @@ import type {
 import {
   callSheetToDocumentData,
   mapArchiveLog,
+  mapProjectDocument,
   mapCallSheet,
+  mapCallSheetDistribution,
+  mapCallSheetRecipient,
   mapCastCrew,
   mapCompany,
   mapCompanyMember,
@@ -34,9 +40,14 @@ import {
   sceneToInsertRow,
   sceneToRow,
 } from "./mappers";
+import { formatSupabaseError, logSupabaseError } from "./errors";
 
 const PROFILE_COLUMNS =
   "id, email, full_name, avatar_url, global_role, auth_status, created_at";
+
+/** Join project_members with profiles — department only on project_members */
+const PROJECT_MEMBER_WITH_PROFILE_SELECT =
+  "*, profiles(email, full_name, global_role)";
 
 export type FetchResult<T> = {
   data: T;
@@ -165,18 +176,14 @@ export async function fetchAllProjects(
   const projectList = (projects ?? []).map(mapProject);
   if (projectList.length === 0) return { projects: [], members: [] };
 
-  const { data: members, error: mErr } = await supabase
-    .from("project_members")
-    .select("*")
-    .in(
-      "project_id",
-      projectList.map((p) => p.id)
-    );
-  if (mErr) throw mErr;
+  const members = await fetchProjectMembersForProjects(
+    supabase,
+    projectList.map((p) => p.id)
+  );
 
   return {
     projects: projectList,
-    members: (members ?? []).map(mapProjectMember),
+    members,
   };
 }
 
@@ -290,19 +297,65 @@ export async function fetchProjects(
   const projectList = (projects ?? []).map(mapProject);
   if (projectList.length === 0) return { projects: [], members: [] };
 
-  const { data: members, error: mErr } = await supabase
-    .from("project_members")
-    .select("*")
-    .in(
-      "project_id",
-      projectList.map((p) => p.id)
-    );
-  if (mErr) throw mErr;
+  const members = await fetchProjectMembersForProjects(
+    supabase,
+    projectList.map((p) => p.id)
+  );
 
   return {
     projects: projectList,
-    members: (members ?? []).map(mapProjectMember),
+    members,
   };
+}
+
+async function enrichProjectMembersWithDisplayNames(
+  supabase: SupabaseClient,
+  members: ProjectMember[]
+): Promise<ProjectMember[]> {
+  const missing = members.filter((m) => !m.full_name?.trim());
+  if (missing.length === 0) return members;
+
+  const names = new Map<string, string>();
+  await Promise.all(
+    missing.map(async (m) => {
+      const { data } = await supabase.rpc("profile_display_name", {
+        uid: m.user_id,
+      });
+      if (data) names.set(m.user_id, String(data));
+    })
+  );
+
+  return members.map((m) => ({
+    ...m,
+    full_name: m.full_name?.trim() ? m.full_name : names.get(m.user_id),
+  }));
+}
+
+export async function fetchProjectMembersForProjects(
+  supabase: SupabaseClient,
+  projectIds: string[]
+): Promise<ProjectMember[]> {
+  if (projectIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("project_members")
+    .select(PROJECT_MEMBER_WITH_PROFILE_SELECT)
+    .in("project_id", projectIds);
+
+  if (error) {
+    logSupabaseError("fetchProjectMembersForProjects", error, { projectIds });
+    throw error;
+  }
+
+  const mapped = (data ?? []).map(mapProjectMember);
+  return enrichProjectMembersWithDisplayNames(supabase, mapped);
+}
+
+export async function fetchProjectMembersForProject(
+  supabase: SupabaseClient,
+  projectId: string
+): Promise<ProjectMember[]> {
+  return fetchProjectMembersForProjects(supabase, [projectId]);
 }
 
 export async function fetchProjectData(
@@ -315,9 +368,21 @@ export async function fetchProjectData(
   shootingDays: ShootingDay[];
   callSheets: CallSheet[];
   archiveLogs: ProjectArchiveLog[];
+  documents: ProjectDocument[];
+  distributions: CallSheetDistribution[];
+  recipients: CallSheetRecipient[];
 }> {
-  const [scenesRes, castRes, locRes, daysRes, sheetsRes, logsRes] =
-    await Promise.all([
+  const [
+    scenesRes,
+    castRes,
+    locRes,
+    daysRes,
+    sheetsRes,
+    logsRes,
+    docsRes,
+    distRes,
+    recipRes,
+  ] = await Promise.all([
       supabase
         .from("scenes")
         .select("*")
@@ -348,11 +413,51 @@ export async function fetchProjectData(
         .select("*")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("project_documents")
+        .select("*")
+        .eq("project_id", projectId)
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("call_sheet_distributions")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("sent_at", { ascending: false }),
+      supabase
+        .from("call_sheet_recipients")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false }),
     ]);
 
-  for (const res of [scenesRes, castRes, locRes, daysRes, sheetsRes, logsRes]) {
+  for (const res of [
+    scenesRes,
+    castRes,
+    locRes,
+    daysRes,
+    sheetsRes,
+    logsRes,
+    docsRes,
+    distRes,
+    recipRes,
+  ]) {
     if (res.error) throw res.error;
   }
+
+  const documents = await enrichProjectDocumentsWithUploaderNames(
+    supabase,
+    (docsRes.data ?? []).map(mapProjectDocument)
+  );
+
+  const distributions = await enrichDistributionsWithNames(
+    supabase,
+    (distRes.data ?? []).map(mapCallSheetDistribution)
+  );
+  const recipients = await enrichRecipientsWithNames(
+    supabase,
+    (recipRes.data ?? []).map(mapCallSheetRecipient)
+  );
 
   return {
     scenes: (scenesRes.data ?? []).map(mapScene),
@@ -361,7 +466,115 @@ export async function fetchProjectData(
     shootingDays: (daysRes.data ?? []).map(mapShootingDay),
     callSheets: (sheetsRes.data ?? []).map(mapCallSheet),
     archiveLogs: (logsRes.data ?? []).map(mapArchiveLog),
+    documents,
+    distributions,
+    recipients,
   };
+}
+
+async function enrichDistributionsWithNames(
+  supabase: SupabaseClient,
+  rows: CallSheetDistribution[]
+): Promise<CallSheetDistribution[]> {
+  const ids = [...new Set(rows.map((r) => r.sent_by).filter(Boolean))] as string[];
+  const names = new Map<string, string>();
+  await Promise.all(
+    ids.map(async (uid) => {
+      const { data } = await supabase.rpc("profile_display_name", { uid });
+      if (data) names.set(uid, String(data));
+    })
+  );
+  return rows.map((r) => ({
+    ...r,
+    sender_name: r.sent_by ? names.get(r.sent_by) : undefined,
+  }));
+}
+
+async function enrichRecipientsWithNames(
+  supabase: SupabaseClient,
+  rows: CallSheetRecipient[]
+): Promise<CallSheetRecipient[]> {
+  const ids = [...new Set(rows.map((r) => r.user_id).filter(Boolean))] as string[];
+  const names = new Map<string, string>();
+  await Promise.all(
+    ids.map(async (uid) => {
+      const { data } = await supabase.rpc("profile_display_name", { uid });
+      if (data) names.set(uid, String(data));
+    })
+  );
+  return rows.map((r) => ({
+    ...r,
+    recipient_name: r.user_id ? names.get(r.user_id) ?? r.full_name : r.full_name,
+  }));
+}
+
+async function enrichProjectDocumentsWithUploaderNames(
+  supabase: SupabaseClient,
+  documents: ProjectDocument[]
+): Promise<ProjectDocument[]> {
+  if (documents.length === 0) return documents;
+
+  const uniqueIds = [...new Set(documents.map((d) => d.uploaded_by))];
+  const names = new Map<string, string>();
+
+  await Promise.all(
+    uniqueIds.map(async (uid) => {
+      const { data, error } = await supabase.rpc("profile_display_name", { uid });
+      if (!error && data) {
+        names.set(uid, String(data));
+      }
+    })
+  );
+
+  return documents.map((doc) => ({
+    ...doc,
+    uploader_name: names.get(doc.uploaded_by) ?? doc.uploaded_by.slice(0, 8),
+  }));
+}
+
+export async function insertProjectDocumentRecord(
+  supabase: SupabaseClient,
+  row: {
+    id: string;
+    company_id: string;
+    workspace_id?: string;
+    project_id: string;
+    uploaded_by: string;
+    file_name: string;
+    original_file_name: string;
+    file_path: string;
+    mime_type?: string;
+    size_bytes?: number;
+    category: string;
+    department?: string | null;
+    visibility: string;
+    notes?: string | null;
+  }
+): Promise<ProjectDocument> {
+  const { data, error } = await supabase
+    .from("project_documents")
+    .insert({
+      ...row,
+      department: row.department ?? null,
+      notes: row.notes ?? null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  const mapped = mapProjectDocument(data);
+  const [enriched] = await enrichProjectDocumentsWithUploaderNames(supabase, [mapped]);
+  return enriched;
+}
+
+export async function softDeleteProjectDocumentRecord(
+  supabase: SupabaseClient,
+  documentId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("project_documents")
+    .update({ is_deleted: true, updated_at: new Date().toISOString() })
+    .eq("id", documentId);
+  if (error) throw error;
 }
 
 export async function createOnboardingProduction(
@@ -998,38 +1211,264 @@ export async function deleteShootingDayRecord(
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function upsertCallSheet(
-  supabase: SupabaseClient,
-  sheet: CallSheet
-): Promise<CallSheet> {
-  const isNew = !UUID_RE.test(sheet.id);
-  const payload = {
-    project_id: sheet.project_id,
-    shooting_day_id: sheet.shooting_day_id || null,
-    version: sheet.version,
-    status: sheet.status,
+function coerceUuid(value: string | undefined | null): string | null {
+  if (!value || !UUID_RE.test(value)) return null;
+  return value;
+}
+
+export type UpsertCallSheetContext = {
+  company_id?: string | null;
+  workspace_id?: string | null;
+  user_id?: string | null;
+};
+
+/** Columns that exist on call_sheets (base schema + document_data jsonb). */
+function buildCallSheetRow(sheet: CallSheet) {
+  const projectId = coerceUuid(sheet.project_id);
+  if (!projectId) {
+    throw new Error("Invalid project_id: must be a valid UUID.");
+  }
+
+  const shootingDayId = coerceUuid(sheet.shooting_day_id);
+  const generatedBy = coerceUuid(sheet.generated_by ?? sheet.created_by);
+
+  if (sheet.shooting_day_id?.trim() && !shootingDayId) {
+    throw new Error(
+      `Invalid shooting_day_id "${sheet.shooting_day_id}": save the shooting day to the database first (UUID required).`
+    );
+  }
+
+  if ((sheet.generated_by || sheet.created_by) && !generatedBy) {
+    throw new Error("Invalid generated_by: user id must be a valid UUID.");
+  }
+
+  return {
+    project_id: projectId,
+    shooting_day_id: shootingDayId,
+    version: sheet.version ?? 1,
+    status: sheet.status ?? "draft",
     pdf_url: sheet.pdf_url ?? null,
-    generated_by: sheet.generated_by || null,
+    generated_by: generatedBy,
     document_data: callSheetToDocumentData(sheet),
     updated_at: new Date().toISOString(),
   };
+}
 
-  if (isNew || sheet.id.length < 30) {
+export async function upsertCallSheet(
+  supabase: SupabaseClient,
+  sheet: CallSheet,
+  context?: UpsertCallSheetContext
+): Promise<CallSheet> {
+  const isNew = !UUID_RE.test(sheet.id);
+  const payload = buildCallSheetRow(sheet);
+
+  const debugContext = {
+    payload,
+    current_project_id: payload.project_id,
+    company_id: context?.company_id ?? null,
+    workspace_id: context?.workspace_id ?? null,
+    shooting_day_id: payload.shooting_day_id,
+    scenes_to_shoot: sheet.scenes_to_shoot ?? [],
+    user_id: context?.user_id ?? payload.generated_by,
+    call_sheet_local_id: sheet.id,
+    is_new: isNew,
+  };
+
+  if (isNew) {
     const { data, error } = await supabase
       .from("call_sheets")
       .insert(payload)
       .select()
       .single();
-    if (error) throw error;
+
+    if (error) {
+      logSupabaseError("upsertCallSheet — insert", error, debugContext);
+      throw error;
+    }
+    if (!data?.id) {
+      const err = new Error("Insert succeeded but no call sheet id returned.");
+      logSupabaseError("upsertCallSheet — missing id", err, debugContext);
+      throw err;
+    }
     return mapCallSheet(data);
+  }
+
+  const sheetId = coerceUuid(sheet.id);
+  if (!sheetId) {
+    const err = new Error("Invalid call sheet id for update: must be a valid UUID.");
+    logSupabaseError("upsertCallSheet — invalid update id", err, debugContext);
+    throw err;
   }
 
   const { data, error } = await supabase
     .from("call_sheets")
     .update(payload)
-    .eq("id", sheet.id)
+    .eq("id", sheetId)
+    .select()
+    .single();
+
+  if (error) {
+    logSupabaseError("upsertCallSheet — update", error, {
+      ...debugContext,
+      call_sheet_id: sheetId,
+    });
+    throw error;
+  }
+  if (!data?.id) {
+    const err = new Error("Update succeeded but no call sheet row returned.");
+    logSupabaseError("upsertCallSheet — missing row after update", err, debugContext);
+    throw err;
+  }
+  return mapCallSheet(data);
+}
+
+export function formatCallSheetSaveError(err: unknown): string {
+  return formatSupabaseError(err);
+}
+
+export async function updateCallSheetWorkflow(
+  supabase: SupabaseClient,
+  sheetId: string,
+  updates: {
+    status?: CallSheet["status"];
+    approved_by?: string | null;
+    approved_at?: string | null;
+    sent_by?: string | null;
+    sent_at?: string | null;
+  }
+): Promise<CallSheet> {
+  const { data, error } = await supabase
+    .from("call_sheets")
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", sheetId)
     .select()
     .single();
   if (error) throw error;
   return mapCallSheet(data);
+}
+
+export async function markCallSheetSent(
+  supabase: SupabaseClient,
+  sheetId: string,
+  sentBy: string
+): Promise<CallSheet> {
+  const ts = new Date().toISOString();
+  return updateCallSheetWorkflow(supabase, sheetId, {
+    status: "sent",
+    sent_by: sentBy,
+    sent_at: ts,
+  });
+}
+
+export async function createCallSheetDistribution(
+  supabase: SupabaseClient,
+  input: {
+    company_id: string;
+    workspace_id?: string;
+    project_id: string;
+    call_sheet_id: string;
+    version_number: number;
+    sent_by: string;
+    notes?: string | null;
+    recipients: Array<{
+      company_id: string;
+      project_id: string;
+      user_id: string;
+      email?: string | null;
+      full_name?: string | null;
+      department?: string | null;
+      recipient_type: string;
+      target_key?: string;
+    }>;
+  }
+): Promise<{ distribution: CallSheetDistribution; recipients: CallSheetRecipient[] }> {
+  const ts = new Date().toISOString();
+
+  const distributionPayload = {
+    company_id: input.company_id,
+    workspace_id: input.workspace_id ?? null,
+    project_id: input.project_id,
+    call_sheet_id: input.call_sheet_id,
+    version_number: input.version_number,
+    status: "sent",
+    sent_by: input.sent_by,
+    sent_at: ts,
+    notes: input.notes ?? null,
+  };
+
+  const { data: distRow, error: distErr } = await supabase
+    .from("call_sheet_distributions")
+    .insert(distributionPayload)
+    .select()
+    .single();
+
+  if (distErr) {
+    logSupabaseError("createCallSheetDistribution — distribution insert", distErr, {
+      payload: distributionPayload,
+    });
+    throw distErr;
+  }
+
+  const recipPayload = input.recipients.map((r) => ({
+    distribution_id: distRow.id,
+    company_id: r.company_id,
+    project_id: r.project_id,
+    user_id: r.user_id,
+    email: r.email ?? null,
+    full_name: r.full_name ?? null,
+    department: r.department ?? null,
+    recipient_type: r.recipient_type,
+    target_key: r.target_key ?? null,
+  }));
+
+  const { data: recipRows, error: recipErr } = await supabase
+    .from("call_sheet_recipients")
+    .insert(recipPayload)
+    .select();
+
+  if (recipErr) {
+    logSupabaseError("createCallSheetDistribution — recipients insert", recipErr, {
+      distribution_id: distRow.id,
+      payload: recipPayload,
+    });
+    throw recipErr;
+  }
+
+  const distribution = mapCallSheetDistribution(distRow);
+  const recipients = await enrichRecipientsWithNames(
+    supabase,
+    (recipRows ?? []).map(mapCallSheetRecipient)
+  );
+
+  const [enrichedDist] = await enrichDistributionsWithNames(supabase, [distribution]);
+
+  return { distribution: enrichedDist, recipients };
+}
+
+export async function acknowledgeCallSheetRecipient(
+  supabase: SupabaseClient,
+  recipientId: string,
+  userId: string,
+  userAgent?: string
+): Promise<CallSheetRecipient> {
+  const ts = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("call_sheet_recipients")
+    .update({
+      acknowledged_at: ts,
+      acknowledged_by: userId,
+      acknowledged_user_agent: userAgent ?? null,
+      updated_at: ts,
+    })
+    .eq("id", recipientId)
+    .eq("user_id", userId)
+    .is("acknowledged_at", null)
+    .select()
+    .single();
+  if (error) throw error;
+  const [enriched] = await enrichRecipientsWithNames(supabase, [mapCallSheetRecipient(data)]);
+  return enriched;
 }

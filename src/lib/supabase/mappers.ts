@@ -9,6 +9,7 @@ import type {
   MemberStatus,
   Project,
   ProjectArchiveLog,
+  ProjectDocument,
   ProjectMember,
   ProjectRole,
   ProjectStatus,
@@ -19,6 +20,8 @@ import type {
   WorkspaceStatus,
   AccessStatus,
   ArchiveAction,
+  CallSheetDistribution,
+  CallSheetRecipient,
   CallSheetStatus,
   CastCrewStatus,
   Complexity,
@@ -95,12 +98,19 @@ export function mapProject(row: any): Project {
 }
 
 export function mapProjectMember(row: any): ProjectMember {
+  const profile = Array.isArray(row.profiles)
+    ? row.profiles[0]
+    : row.profiles ?? null;
+
   return {
     id: row.id,
     project_id: row.project_id,
     user_id: row.user_id,
     role: row.role as ProjectRole,
     department: row.department ?? undefined,
+    email: profile?.email ?? undefined,
+    full_name: profile?.full_name ?? undefined,
+    global_role: profile?.global_role ?? undefined,
     permission_profile: row.permission_profile ?? undefined,
     can_view_breakdown: row.can_view_breakdown ?? undefined,
     can_edit_breakdown: row.can_edit_breakdown ?? undefined,
@@ -229,6 +239,12 @@ export function mapShootingDay(row: any): ShootingDay {
   };
 }
 
+function normalizeSheetStatus(status: string): CallSheetStatus {
+  if (status === "final") return "ready_for_approval";
+  if (status === "locked") return "approved";
+  return (status ?? "draft") as CallSheetStatus;
+}
+
 export function mapCallSheet(row: any): CallSheet {
   const doc = row.document_data ?? {};
   return {
@@ -236,9 +252,14 @@ export function mapCallSheet(row: any): CallSheet {
     project_id: row.project_id,
     shooting_day_id: row.shooting_day_id ?? "",
     version: row.version ?? 1,
-    status: (row.status ?? "draft") as CallSheetStatus,
+    status: normalizeSheetStatus(row.status),
     pdf_url: row.pdf_url ?? undefined,
     generated_by: row.generated_by ?? "",
+    created_by: row.created_by ?? row.generated_by ?? undefined,
+    approved_by: row.approved_by ?? undefined,
+    approved_at: row.approved_at ?? undefined,
+    sent_by: row.sent_by ?? undefined,
+    sent_at: row.sent_at ?? undefined,
     production_title: doc.production_title ?? "",
     project_title: doc.project_title ?? "",
     day_number: doc.day_number ?? "",
@@ -278,6 +299,68 @@ export function callSheetToDocumentData(cs: CallSheet) {
     transport_notes: cs.transport_notes,
     emergency_contacts: cs.emergency_contacts,
     production_notes: cs.production_notes,
+  };
+}
+
+export function mapCallSheetDistribution(row: any): CallSheetDistribution {
+  return {
+    id: row.id,
+    company_id: row.company_id,
+    workspace_id: row.workspace_id ?? undefined,
+    project_id: row.project_id,
+    call_sheet_id: row.call_sheet_id,
+    version_number: row.version_number ?? 1,
+    status: row.status ?? "sent",
+    sent_by: row.sent_by ?? undefined,
+    sent_at: row.sent_at ?? undefined,
+    notes: row.notes ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? row.created_at,
+    sender_name: row.sender_name ?? undefined,
+  };
+}
+
+export function mapCallSheetRecipient(row: any): CallSheetRecipient {
+  return {
+    id: row.id,
+    distribution_id: row.distribution_id,
+    company_id: row.company_id,
+    project_id: row.project_id,
+    user_id: row.user_id ?? undefined,
+    email: row.email ?? undefined,
+    full_name: row.full_name ?? undefined,
+    department: row.department ?? undefined,
+    recipient_type: row.recipient_type ?? "user",
+    target_key: row.target_key ?? undefined,
+    acknowledged_at: row.acknowledged_at ?? undefined,
+    acknowledged_by: row.acknowledged_by ?? undefined,
+    acknowledged_user_agent: row.acknowledged_user_agent ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? row.created_at,
+    recipient_name: row.recipient_name ?? undefined,
+  };
+}
+
+export function mapProjectDocument(row: any): ProjectDocument {
+  return {
+    id: row.id,
+    company_id: row.company_id,
+    workspace_id: row.workspace_id ?? undefined,
+    project_id: row.project_id,
+    uploaded_by: row.uploaded_by,
+    file_name: row.file_name,
+    original_file_name: row.original_file_name,
+    file_path: row.file_path,
+    mime_type: row.mime_type ?? undefined,
+    size_bytes: row.size_bytes ?? undefined,
+    category: row.category,
+    department: row.department ?? undefined,
+    visibility: row.visibility ?? "project",
+    notes: row.notes ?? undefined,
+    is_deleted: row.is_deleted ?? false,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? row.created_at,
+    uploader_name: row.uploader_name ?? undefined,
   };
 }
 

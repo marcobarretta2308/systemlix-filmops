@@ -55,9 +55,12 @@ export type CallSheetPdfData = {
 
 export const CALL_SHEET_STATUS_LABELS: Record<CallSheetStatus, string> = {
   draft: "Bozza",
-  final: "Finale",
-  locked: "Bloccato",
-  archived: "Archiviato",
+  ready_for_approval: "Pronta per approvazione",
+  approved: "Approvata",
+  sent: "Inviata",
+  archived: "Archiviata",
+  final: "Pronta per approvazione",
+  locked: "Approvata",
 };
 
 export const COMPLEXITY_LABELS: Record<Complexity, string> = {

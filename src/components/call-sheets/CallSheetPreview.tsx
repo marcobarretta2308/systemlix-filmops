@@ -1,16 +1,9 @@
-import { Badge } from "@/components/ui/Badge";
-import type { CallSheet, CallSheetStatus } from "@/lib/types";
+import { CallSheetStatusBadge } from "@/components/call-sheets/CallSheetStatusBadge";
+import type { CallSheet } from "@/lib/types";
 
 interface CallSheetPreviewProps {
   callSheet: CallSheet;
 }
-
-const STATUS_LABELS: Record<CallSheetStatus, string> = {
-  draft: "Bozza",
-  final: "Finale",
-  locked: "Bloccato",
-  archived: "Archiviato",
-};
 
 function DocSection({
   title,
@@ -59,9 +52,7 @@ export function CallSheetPreview({ callSheet }: CallSheetPreviewProps) {
               <span className="text-[10px] px-2 py-0.5 rounded border border-[var(--border-subtle)] text-[var(--text-muted)]">
                 v{callSheet.version}
               </span>
-              <Badge variant={callSheet.status === "final" ? "final" : callSheet.status === "locked" ? "locked" : "draft"}>
-                {STATUS_LABELS[callSheet.status]}
-              </Badge>
+              <CallSheetStatusBadge status={callSheet.status} />
             </div>
           </div>
         </div>

@@ -209,6 +209,8 @@ create table if not exists public.assistant_messages (
   created_at timestamptz default now()
 );
 
+-- See migration 006_project_documents.sql for project_documents table + storage
+
 create table if not exists public.project_archive_logs (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.projects(id) on delete cascade,

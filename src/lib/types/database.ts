@@ -7,7 +7,14 @@ export type GlobalRole = "platform_owner" | "user";
 export type AuthStatus = "active" | "suspended" | "revoked" | "banned";
 export type MemberStatus = "active" | "suspended" | "revoked";
 export type AccessStatus = "active" | "suspended" | "revoked";
-export type CallSheetStatus = "draft" | "final" | "locked" | "archived";
+export type CallSheetStatus =
+  | "draft"
+  | "ready_for_approval"
+  | "approved"
+  | "sent"
+  | "archived"
+  | "final"
+  | "locked";
 export type Complexity = "low" | "medium" | "high" | "very_high";
 export type IntExt = "INT" | "EXT";
 export type DayNight = "DAY" | "NIGHT";
@@ -110,7 +117,11 @@ export interface ProjectMember {
   project_id: string;
   user_id: string;
   role: ProjectRole;
+  /** Always from project_members.department — never profiles */
   department?: string;
+  email?: string;
+  full_name?: string;
+  global_role?: GlobalRole;
   permission_profile?: string;
   can_view_breakdown?: boolean;
   can_edit_breakdown?: boolean;
@@ -237,6 +248,11 @@ export interface CallSheet {
   status: CallSheetStatus;
   pdf_url?: string;
   generated_by: string;
+  created_by?: string;
+  approved_by?: string;
+  approved_at?: string;
+  sent_by?: string;
+  sent_at?: string;
   production_title: string;
   project_title: string;
   day_number: string;
@@ -271,6 +287,62 @@ export interface AssistantMessage {
   sender: "user" | "assistant";
   message: string;
   created_at: string;
+}
+
+export interface CallSheetDistribution {
+  id: string;
+  company_id: string;
+  workspace_id?: string;
+  project_id: string;
+  call_sheet_id: string;
+  version_number: number;
+  status: string;
+  sent_by?: string;
+  sent_at?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  sender_name?: string;
+}
+
+export interface CallSheetRecipient {
+  id: string;
+  distribution_id: string;
+  company_id: string;
+  project_id: string;
+  user_id?: string;
+  email?: string;
+  full_name?: string;
+  department?: string;
+  recipient_type: string;
+  target_key?: string;
+  acknowledged_at?: string;
+  acknowledged_by?: string;
+  acknowledged_user_agent?: string;
+  created_at: string;
+  updated_at: string;
+  recipient_name?: string;
+}
+
+export interface ProjectDocument {
+  id: string;
+  company_id: string;
+  workspace_id?: string;
+  project_id: string;
+  uploaded_by: string;
+  file_name: string;
+  original_file_name: string;
+  file_path: string;
+  mime_type?: string;
+  size_bytes?: number;
+  category: string;
+  department?: string;
+  visibility: string;
+  notes?: string;
+  is_deleted: boolean;
+  created_at: string;
+  updated_at: string;
+  uploader_name?: string;
 }
 
 export interface ProjectArchiveLog {

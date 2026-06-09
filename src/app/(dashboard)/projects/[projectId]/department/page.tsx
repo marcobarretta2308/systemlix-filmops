@@ -1,12 +1,13 @@
 "use client";
 
+import { CallSheetInbox } from "@/components/call-sheets/CallSheetInbox";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PremiumCard } from "@/components/ui/PremiumCard";
 import { useSyncProjectFromUrl } from "@/hooks/useSyncProjectFromUrl";
-import { useProject } from "@/lib/context/PlatformContext";
+import { useAuth, useProject } from "@/lib/context/PlatformContext";
 import { isCostumiDepartment } from "@/lib/permissions/project-permissions";
 import { Calendar, Clock, MapPin, Shirt, Users } from "lucide-react";
 import Link from "next/link";
@@ -21,6 +22,7 @@ function formatDate(date: string) {
 
 export default function DepartmentDashboardPage() {
   const { projectId, isProjectReady } = useSyncProjectFromUrl();
+  const { user } = useAuth();
   const {
     activeProjectMembership,
     isDepartmentDashboard,
@@ -28,6 +30,9 @@ export default function DepartmentDashboardPage() {
     shootingDays,
     locations,
     callSheets,
+    callSheetDistributions,
+    callSheetRecipients,
+    refreshCallSheetDistribution,
     projectPermissions,
   } = useProject();
 
@@ -264,16 +269,30 @@ export default function DepartmentDashboardPage() {
         )}
       </PremiumCard>
 
+      {projectPermissions.can_view_call_sheets && user?.id && (
+        <CallSheetInbox
+          projectId={projectId}
+          userId={user.id}
+          memberDepartment={activeProjectMembership?.department}
+          callSheets={callSheets}
+          distributions={callSheetDistributions}
+          recipients={callSheetRecipients}
+          onAcknowledged={refreshCallSheetDistribution}
+          variant="section"
+          filter="all"
+        />
+      )}
+
       {projectPermissions.can_view_call_sheets && activeCallSheet && (
         <PremiumCard padding="md">
           <h3 className="text-[13px] font-medium text-[var(--text-primary)] mb-2">
-            Call sheet (sola lettura)
+            Ultima call sheet salvata
           </h3>
           <p className="text-[12px] text-[var(--text-secondary)]">
             v{activeCallSheet.version} · Giorno {activeCallSheet.day_number} · {activeCallSheet.location}
           </p>
           <Link
-            href={`/projects/${projectId}/call-sheets`}
+            href={`/projects/${projectId}/call-sheets?sheet=${activeCallSheet.id}`}
             className="inline-block mt-3 text-[12px] text-[var(--accent-cyan)] hover:underline"
           >
             Apri call sheet completo

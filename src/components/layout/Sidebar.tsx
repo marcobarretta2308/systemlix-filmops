@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
+import { canViewDocuments } from "@/lib/documents/permissions";
 import {
   getDepartmentDashboardLabel,
   isCostumiDepartment,
@@ -15,6 +16,7 @@ import {
   Calendar,
   Clapperboard,
   FileText,
+  FolderOpen,
   FolderKanban,
   LayoutDashboard,
   MapPin,
@@ -108,6 +110,13 @@ function projectNav(
       visible: (p) => p.can_view_set_assistant,
     },
     {
+      key: "documents",
+      href: `/projects/${projectId}/documents`,
+      label: "Documents",
+      icon: FolderOpen,
+      visible: () => true,
+    },
+    {
       key: "archive",
       href: `/projects/${projectId}/archive`,
       label: "Archivio / Blocco",
@@ -149,8 +158,9 @@ function NavItem({
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { isPlatformOwner } = useAuth();
-  const { activeCompany, canCreateProject, needsPlatformSetup, isLoading } = useCompany();
+  const { isPlatformOwner, user } = useAuth();
+  const { activeCompany, canCreateProject, needsPlatformSetup, isLoading, companyRole } =
+    useCompany();
   const {
     activeProject,
     projectPermissions,
@@ -158,7 +168,10 @@ export function Sidebar() {
     canManageAccess,
     canArchiveProject,
     accessibleProjectsAll,
+    projectRole,
   } = useProject();
+
+  const showDocumentsNav = canViewDocuments(user, companyRole, projectRole);
 
   const isCostumiUser = isCostumiDepartment(projectPermissions, isDepartmentDashboard);
 
@@ -186,6 +199,7 @@ export function Sidebar() {
         projectPermissions.department,
         canArchiveProject
       ).filter((item) => {
+        if (item.key === "documents" && !showDocumentsNav) return false;
         const defaultVisible = item.visible
           ? item.visible(projectPermissions, isDepartmentDashboard)
           : true;

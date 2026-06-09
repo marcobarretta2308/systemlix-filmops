@@ -306,6 +306,7 @@ const COSTUMI_NAV_KEYS = new Set([
   "scenes",
   "call-sheets",
   "set-assistant",
+  "documents",
 ]);
 
 export function shouldShowProjectNavItem(
