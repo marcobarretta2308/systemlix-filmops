@@ -86,7 +86,7 @@ function asStringArray(value: unknown): string[] {
     .filter(Boolean);
 }
 
-function normalizeIntExt(value: unknown): IntExt {
+export function normalizeIntExt(value: unknown): IntExt {
   const raw = String(value ?? "UNKNOWN").toUpperCase().trim();
   if (raw === "EXT" || raw.startsWith("EXT")) return "EXT";
   if (raw.includes("INT/EXT") || raw.includes("INT-EXT")) return "INT";
@@ -94,7 +94,7 @@ function normalizeIntExt(value: unknown): IntExt {
   return "INT";
 }
 
-function normalizeDayNight(value: unknown): DayNight {
+export function normalizeDayNight(value: unknown): DayNight {
   const raw = String(value ?? "UNKNOWN").toUpperCase().trim();
   if (
     raw === "NIGHT" ||
@@ -107,7 +107,7 @@ function normalizeDayNight(value: unknown): DayNight {
   return "DAY";
 }
 
-function normalizeComplexity(value: unknown): Complexity {
+export function normalizeComplexity(value: unknown): Complexity {
   const raw = String(value ?? "Media").toLowerCase().trim();
   if (raw.includes("molto") || raw.includes("very")) return "very_high";
   if (raw.includes("alta") || raw === "high") return "high";

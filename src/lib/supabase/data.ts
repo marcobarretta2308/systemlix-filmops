@@ -1207,16 +1207,45 @@ export async function insertLocation(
     .insert({
       project_id: location.project_id,
       name: location.name,
-      address: location.address,
-      maps_link: location.maps_link,
-      parking_notes: location.parking_notes,
-      access_notes: location.access_notes,
-      production_notes: location.production_notes,
+      address: location.address ?? "",
+      maps_link: location.maps_link ?? "",
+      parking_notes: location.parking_notes ?? "",
+      access_notes: location.access_notes ?? "",
+      production_notes: location.production_notes ?? "",
+      canonical_name: location.canonical_name ?? location.name,
+      sub_location: location.sub_location ?? "",
+      location_type: location.location_type ?? "unknown",
+      status: location.status ?? "scouting",
+      permit_status: location.permit_status ?? null,
+      notes: location.notes ?? "",
+      source: location.source ?? "manual",
+      raw_name: location.raw_name ?? null,
+      confidence_score: location.confidence_score ?? null,
+      scene_count: location.scene_count ?? null,
+      metadata: location.metadata ?? {},
     })
     .select()
     .single();
   if (error) throw error;
   return mapLocation(data);
+}
+
+export async function insertSceneLocationLink(
+  supabase: SupabaseClient,
+  input: {
+    project_id: string;
+    scene_id: string;
+    location_id: string;
+    sub_location?: string | null;
+  }
+): Promise<void> {
+  const { error } = await supabase.from("scene_locations").insert({
+    project_id: input.project_id,
+    scene_id: input.scene_id,
+    location_id: input.location_id,
+    sub_location: input.sub_location ?? null,
+  });
+  if (error && !String(error.message).includes("duplicate")) throw error;
 }
 
 export async function updateLocationRecord(
@@ -1786,4 +1815,225 @@ export async function updateProductionReportWorkflow(
 
 export function formatProductionReportSaveError(err: unknown): string {
   return formatSupabaseError(err);
+}
+
+export async function insertScriptRevision(
+  supabase: SupabaseClient,
+  input: {
+    company_id: string;
+    workspace_id?: string | null;
+    project_id: string;
+    document_id?: string | null;
+    revision_name?: string | null;
+    revision_date?: string | null;
+    script_text?: string | null;
+    ai_summary?: Record<string, unknown> | null;
+    created_by: string;
+  }
+): Promise<{ id: string }> {
+  const { data, error } = await supabase
+    .from("script_revisions")
+    .insert({
+      company_id: input.company_id,
+      workspace_id: input.workspace_id ?? null,
+      project_id: input.project_id,
+      document_id: input.document_id ?? null,
+      revision_name: input.revision_name ?? null,
+      revision_date: input.revision_date ?? null,
+      script_text: input.script_text ?? null,
+      ai_summary: input.ai_summary ?? null,
+      created_by: input.created_by,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return { id: data.id };
+}
+
+export async function insertScriptBreakdownRun(
+  supabase: SupabaseClient,
+  input: {
+    company_id: string;
+    workspace_id?: string | null;
+    project_id: string;
+    script_revision_id?: string | null;
+    status?: string;
+    input_type?: string | null;
+    ai_result?: Record<string, unknown> | null;
+    created_by: string;
+  }
+): Promise<{ id: string }> {
+  const { data, error } = await supabase
+    .from("script_breakdown_runs")
+    .insert({
+      company_id: input.company_id,
+      workspace_id: input.workspace_id ?? null,
+      project_id: input.project_id,
+      script_revision_id: input.script_revision_id ?? null,
+      status: input.status ?? "completed",
+      input_type: input.input_type ?? null,
+      ai_result: input.ai_result ?? null,
+      created_by: input.created_by,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return { id: data.id };
+}
+
+export async function insertScriptBreakdownChunks(
+  supabase: SupabaseClient,
+  rows: Array<{
+    run_id: string;
+    project_id: string;
+    chunk_index: number;
+    scene_range?: string | null;
+    input_text?: string | null;
+    status?: string;
+  }>
+): Promise<Array<{ id: string; chunk_index: number }>> {
+  if (rows.length === 0) return [];
+  const { data, error } = await supabase
+    .from("script_breakdown_chunks")
+    .insert(
+      rows.map((row) => ({
+        run_id: row.run_id,
+        project_id: row.project_id,
+        chunk_index: row.chunk_index,
+        scene_range: row.scene_range ?? null,
+        input_text: row.input_text ?? null,
+        status: row.status ?? "pending",
+      }))
+    )
+    .select("id, chunk_index");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function updateScriptBreakdownChunk(
+  supabase: SupabaseClient,
+  chunkId: string,
+  updates: {
+    status?: string;
+    ai_result?: Record<string, unknown> | null;
+    error_message?: string | null;
+  }
+): Promise<void> {
+  const { error } = await supabase
+    .from("script_breakdown_chunks")
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", chunkId);
+  if (error) throw error;
+}
+
+export async function fetchScriptBreakdownChunks(
+  supabase: SupabaseClient,
+  runId: string
+): Promise<
+  Array<{
+    id: string;
+    chunk_index: number;
+    scene_range: string | null;
+    status: string;
+    error_message: string | null;
+    ai_result: Record<string, unknown> | null;
+    input_text: string | null;
+  }>
+> {
+  const { data, error } = await supabase
+    .from("script_breakdown_chunks")
+    .select(
+      "id, chunk_index, scene_range, status, error_message, ai_result, input_text"
+    )
+    .eq("run_id", runId)
+    .order("chunk_index", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function updateScriptBreakdownRun(
+  supabase: SupabaseClient,
+  runId: string,
+  updates: {
+    status?: string;
+    ai_result?: Record<string, unknown> | null;
+  }
+): Promise<void> {
+  const { error } = await supabase
+    .from("script_breakdown_runs")
+    .update(updates)
+    .eq("id", runId);
+  if (error) throw error;
+}
+
+export async function insertScriptBreakdownQualityCheck(
+  supabase: SupabaseClient,
+  input: {
+    run_id: string;
+    project_id: string;
+    quality_status: string;
+    issues: Record<string, unknown>[];
+  }
+): Promise<{ id: string }> {
+  const { data, error } = await supabase
+    .from("script_breakdown_quality_checks")
+    .insert({
+      run_id: input.run_id,
+      project_id: input.project_id,
+      quality_status: input.quality_status,
+      issues: input.issues,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return { id: data.id };
+}
+
+export async function fetchProjectDocumentById(
+  supabase: SupabaseClient,
+  documentId: string
+): Promise<{
+  id: string;
+  project_id: string;
+  file_path: string;
+  original_file_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+} | null> {
+  const { data, error } = await supabase
+    .from("project_documents")
+    .select(
+      "id, project_id, file_path, original_file_name, mime_type, size_bytes"
+    )
+    .eq("id", documentId)
+    .eq("is_deleted", false)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchProjectBreakdownEntities(
+  supabase: SupabaseClient,
+  projectId: string
+): Promise<{
+  scenes: Scene[];
+  castCrew: CastCrew[];
+  locations: Location[];
+}> {
+  const [scenesRes, castRes, locRes] = await Promise.all([
+    supabase.from("scenes").select("*").eq("project_id", projectId),
+    supabase.from("cast_crew").select("*").eq("project_id", projectId),
+    supabase.from("locations").select("*").eq("project_id", projectId),
+  ]);
+  if (scenesRes.error) throw scenesRes.error;
+  if (castRes.error) throw castRes.error;
+  if (locRes.error) throw locRes.error;
+  return {
+    scenes: (scenesRes.data ?? []).map(mapScene),
+    castCrew: (castRes.data ?? []).map(mapCastCrew),
+    locations: (locRes.data ?? []).map(mapLocation),
+  };
 }

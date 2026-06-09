@@ -13,6 +13,7 @@ import {
   MAX_DOCUMENT_SIZE_BYTES,
 } from "@/lib/documents/constants";
 import { getClientOrNull } from "@/lib/supabase/client";
+import { operationFailed } from "@/lib/utils/user-facing-error";
 import { Loader2, Upload } from "lucide-react";
 import { useState } from "react";
 
@@ -94,7 +95,7 @@ export function DocumentUploadModal({
     setSubmitting(false);
 
     if (!result.ok) {
-      setError(result.error);
+      setError(operationFailed(result.error));
       return;
     }
 

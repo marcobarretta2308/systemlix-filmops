@@ -100,9 +100,7 @@ export async function POST(request: Request) {
         response,
         fallback: true,
         devNote:
-          process.env.NODE_ENV === "development"
-            ? "OPENAI_API_KEY non configurata, uso fallback locale."
-            : undefined,
+          "AI service unavailable. Showing a local fallback response.",
       });
     }
 

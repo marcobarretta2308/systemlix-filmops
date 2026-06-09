@@ -49,6 +49,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
+import { operationFailed } from "@/lib/utils/user-facing-error";
 import { useMemo, useState } from "react";
 
 interface DocumentsVaultProps {
@@ -146,7 +147,7 @@ export function DocumentsVault({
     setActionLoading(null);
 
     if (!result.ok) {
-      notify(result.error, "error");
+      notify(operationFailed(result.error), "error");
       return;
     }
 
@@ -192,7 +193,12 @@ export function DocumentsVault({
       notify("Document removed.", "success");
     } catch (err) {
       console.error("[FilmOps] delete document error:", err);
-      notify(err instanceof Error ? err.message : "Delete failed", "error");
+      notify(
+        operationFailed(
+          err instanceof Error ? err.message : "Could not delete document"
+        ),
+        "error"
+      );
     } finally {
       setDeletingId(null);
     }

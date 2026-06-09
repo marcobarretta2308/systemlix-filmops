@@ -26,6 +26,7 @@ import {
   canSubmitOrApproveReport,
   canViewProductionReports,
 } from "@/lib/production-reports/permissions";
+import { operationFailed } from "@/lib/utils/user-facing-error";
 import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
 import type {
   IssueCategory,
@@ -268,7 +269,7 @@ export default function ProductionReportsPage() {
     });
     setSaving(false);
     if (error) {
-      notify(`Failed to save production report: ${error}`, "error");
+      notify(operationFailed(error), "error");
       return;
     }
     if (report) {
@@ -289,7 +290,7 @@ export default function ProductionReportsPage() {
       deptNotes[department] ?? ""
     );
     if (error) {
-      notify(`Failed to save production report: ${error}`, "error");
+      notify(operationFailed(error), "error");
       return;
     }
     notify(`${department} notes saved.`);
@@ -304,7 +305,7 @@ export default function ProductionReportsPage() {
     const { report, error } = await submitProductionReport(draft.id);
     setSaving(false);
     if (error) {
-      notify(`Failed to save production report: ${error}`, "error");
+      notify(operationFailed(error), "error");
       return;
     }
     if (report) {
@@ -319,7 +320,7 @@ export default function ProductionReportsPage() {
     const { report, error } = await approveProductionReport(draft.id);
     setSaving(false);
     if (error) {
-      notify(`Failed to save production report: ${error}`, "error");
+      notify(operationFailed(error), "error");
       return;
     }
     if (report) {
@@ -356,7 +357,9 @@ export default function ProductionReportsPage() {
       notify("PDF exported.");
     } catch (err) {
       notify(
-        err instanceof Error ? err.message : "PDF export failed",
+        operationFailed(
+          err instanceof Error ? err.message : "PDF export failed"
+        ),
         "error"
       );
     } finally {

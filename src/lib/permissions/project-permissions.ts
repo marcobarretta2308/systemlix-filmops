@@ -139,6 +139,7 @@ export function getDefaultProjectPermissions(
     case "assistant_director":
       return base("assistant_director", {
         can_view_breakdown: true,
+        can_edit_breakdown: true,
         can_view_scenes: true,
         can_edit_scenes: true,
         can_view_cast_crew: true,
@@ -327,13 +328,14 @@ export function isCostumiDepartment(
   return isDepartment && permissions.department === "Costumi";
 }
 
-const COSTUMI_NAV_KEYS = new Set([
+/** Nav items visible to any department_user (not only Costumi) */
+const DEPARTMENT_USER_NAV_KEYS = new Set([
   "department",
   "scenes",
   "call-sheets",
+  "documents",
   "production-reports",
   "set-assistant",
-  "documents",
 ]);
 
 export function shouldShowProjectNavItem(
@@ -342,8 +344,8 @@ export function shouldShowProjectNavItem(
   isDepartment: boolean,
   defaultVisible: boolean
 ): boolean {
-  if (isCostumiDepartment(permissions, isDepartment)) {
-    return COSTUMI_NAV_KEYS.has(navKey);
+  if (isDepartment) {
+    return DEPARTMENT_USER_NAV_KEYS.has(navKey);
   }
   return defaultVisible;
 }

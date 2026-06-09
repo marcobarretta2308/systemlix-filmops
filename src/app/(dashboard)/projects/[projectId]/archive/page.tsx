@@ -20,6 +20,7 @@ import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
 import type { ArchiveAction } from "@/lib/types";
 import { PROJECT_STATUS_LABELS } from "@/lib/utils/project-status";
 import { Archive, AlertTriangle, Download, Loader2, Lock, RotateCcw } from "lucide-react";
+import { operationFailed } from "@/lib/utils/user-facing-error";
 import { useState } from "react";
 
 const ACTION_LABELS: Record<string, string> = {
@@ -78,7 +79,7 @@ export default function ArchivePage() {
         if (result.ok) {
           showToast("Esportazione dati progetto — pronta per integrazione backend.", "success");
         } else {
-          showToast(result.error ?? "Errore durante l'export.", "error");
+          showToast(operationFailed(result.error ?? "Export failed"), "error");
         }
       } else {
         const result = await archiveProject(modalAction);
@@ -89,7 +90,7 @@ export default function ArchivePage() {
               : "Progetto bloccato. Gli accessi operativi non admin sono stati revocati.";
           showToast(msg, "success");
         } else {
-          showToast(result.error ?? "Errore durante l'operazione.", "error");
+          showToast(operationFailed(result.error ?? "Operation failed"), "error");
         }
       }
     } finally {
@@ -109,7 +110,7 @@ export default function ArchivePage() {
           "success"
         );
       } else {
-        showToast(result.error ?? "Errore durante la riattivazione.", "error");
+        showToast(operationFailed(result.error ?? "Reactivation failed"), "error");
       }
     } finally {
       setSubmitting(false);
@@ -176,7 +177,7 @@ export default function ArchivePage() {
               <div className="flex-1">
                 <p className="text-[14px] text-[var(--text-primary)]">Esporta dati</p>
                 <p className="text-[12px] text-[var(--text-muted)] mt-1 leading-relaxed">
-                  Richiedi export completo del progetto (placeholder).
+                  Full project export will be available in a future release. Use module exports (call sheets, reports) in the meantime.
                 </p>
                 <Button
                   variant="outline"

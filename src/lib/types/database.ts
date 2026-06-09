@@ -192,6 +192,45 @@ export interface CastCrew {
   created_at: string;
 }
 
+export type LocationStatus =
+  | "scouting"
+  | "confirmed"
+  | "permit_pending"
+  | "ready"
+  | "suggestion"
+  | "archived";
+
+export type LocationSource =
+  | "manual"
+  | "script_breakdown"
+  | "backfill"
+  | "rebuild"
+  | "ai"
+  | string;
+
+export type LocationTypeCode =
+  | "interior"
+  | "exterior"
+  | "mixed"
+  | "vehicle"
+  | "unknown";
+
+export interface LocationMetadata {
+  sub_locations?: Array<{
+    name: string;
+    scenes: string[];
+    day_night?: string[];
+    warnings?: string[];
+  }>;
+  day_night_usage?: string[];
+  warnings?: string[];
+  linked_scene_numbers?: string[];
+  merged_into?: string;
+  merged_at?: string;
+  ignored?: boolean;
+  approved_at?: string;
+}
+
 export interface Location {
   id: string;
   project_id: string;
@@ -201,6 +240,17 @@ export interface Location {
   parking_notes: string;
   access_notes: string;
   production_notes: string;
+  canonical_name?: string;
+  sub_location?: string;
+  location_type?: LocationTypeCode | string;
+  status?: LocationStatus | string;
+  permit_status?: string;
+  notes?: string;
+  source?: LocationSource | string;
+  raw_name?: string;
+  confidence_score?: number;
+  scene_count?: number;
+  metadata?: LocationMetadata;
   created_at: string;
 }
 

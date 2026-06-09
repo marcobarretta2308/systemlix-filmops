@@ -23,6 +23,7 @@ import {
   fetchAllProjects,
   fetchAllWorkspaces,
 } from "@/lib/supabase/data";
+import { operationFailed } from "@/lib/utils/user-facing-error";
 import type { Workspace } from "@/lib/types";
 import {
   AUTH_STATUS_LABELS,
@@ -221,7 +222,7 @@ export default function AccessManagementPage() {
     setLoadingUsers(false);
     if (!res.ok) {
       setToastVariant("error");
-      setToast(data.error ?? "Errore caricamento utenti");
+      setToast(operationFailed(data.error ?? "Could not load users"));
       return;
     }
     setUsers(data.users ?? []);
@@ -276,7 +277,7 @@ export default function AccessManagementPage() {
     const result = await callAdminApi("/api/admin/users/create", createForm);
     setSubmitting(false);
     if (!result.ok) {
-      notify(result.data.error ?? "Errore creazione utente", "error");
+      notify(operationFailed(result.data.error ?? "Could not create user"), "error");
       return;
     }
     setCreateSuccess({
@@ -297,7 +298,9 @@ export default function AccessManagementPage() {
     const result = await callAdminApi("/api/admin/users/assign-company", companyAssign);
     setSubmitting(false);
     notify(
-      result.ok ? "Utente assegnato alla produzione." : (result.data.error ?? "Errore assegnazione"),
+      result.ok
+        ? "Utente assegnato alla produzione."
+        : operationFailed(result.data.error ?? "Could not assign to company"),
       result.ok ? "success" : "error"
     );
     if (result.ok) loadUsers();
@@ -308,7 +311,9 @@ export default function AccessManagementPage() {
     const result = await callAdminApi("/api/admin/users/assign-project", projectAssign);
     setSubmitting(false);
     notify(
-      result.ok ? "Utente assegnato al progetto." : (result.data.error ?? "Errore assegnazione"),
+      result.ok
+        ? "Utente assegnato al progetto."
+        : operationFailed(result.data.error ?? "Could not assign to project"),
       result.ok ? "success" : "error"
     );
     if (result.ok) loadUsers();
@@ -323,7 +328,9 @@ export default function AccessManagementPage() {
     const result = await callAdminApi("/api/admin/users/revoke", revokeForm);
     setSubmitting(false);
     notify(
-      result.ok ? "Accesso revocato." : (result.data.error ?? "Errore revoca"),
+      result.ok
+        ? "Accesso revocato."
+        : operationFailed(result.data.error ?? "Could not revoke access"),
       result.ok ? "success" : "error"
     );
     if (result.ok) loadUsers();
@@ -334,7 +341,9 @@ export default function AccessManagementPage() {
     const result = await callAdminApi("/api/admin/users/suspend", { user_id: userId });
     setSubmitting(false);
     notify(
-      result.ok ? "Utente sospeso." : (result.data.error ?? "Errore sospensione"),
+      result.ok
+        ? "Utente sospeso."
+        : operationFailed(result.data.error ?? "Could not suspend user"),
       result.ok ? "success" : "error"
     );
     if (result.ok) loadUsers();
@@ -345,7 +354,9 @@ export default function AccessManagementPage() {
     const result = await callAdminApi("/api/admin/users/reactivate", { user_id: userId });
     setSubmitting(false);
     notify(
-      result.ok ? "Utente riattivato." : (result.data.error ?? "Errore riattivazione"),
+      result.ok
+        ? "Utente riattivato."
+        : operationFailed(result.data.error ?? "Could not reactivate user"),
       result.ok ? "success" : "error"
     );
     if (result.ok) loadUsers();

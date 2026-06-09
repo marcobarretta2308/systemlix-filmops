@@ -4,7 +4,6 @@ import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
 import { canViewDocuments } from "@/lib/documents/permissions";
 import {
   getDepartmentDashboardLabel,
-  isCostumiDepartment,
   shouldShowProjectNavItem,
   type ProjectPermissions,
 } from "@/lib/permissions/project-permissions";
@@ -50,7 +49,7 @@ function projectNav(
     {
       key: "overview",
       href: `/projects/${projectId}`,
-      label: "Panoramica",
+      label: "Dashboard",
       icon: Clapperboard,
       visible: (_p, isDept) => !isDept,
     },
@@ -71,7 +70,7 @@ function projectNav(
     {
       key: "scenes",
       href: `/projects/${projectId}/scenes`,
-      label: "Scene",
+      label: "Scenes",
       icon: FileText,
       visible: (p) => p.can_view_scenes,
     },
@@ -85,23 +84,30 @@ function projectNav(
     {
       key: "locations",
       href: `/projects/${projectId}/locations`,
-      label: "Location",
+      label: "Locations",
       icon: MapPin,
       visible: (p) => p.can_view_locations,
     },
     {
       key: "shooting-days",
       href: `/projects/${projectId}/shooting-days`,
-      label: "Giornate",
+      label: "Shooting Days",
       icon: Calendar,
       visible: (p) => p.can_view_shooting_days,
     },
     {
       key: "call-sheets",
       href: `/projects/${projectId}/call-sheets`,
-      label: "Call Sheet",
+      label: "Call Sheets",
       icon: FileText,
       visible: (p) => p.can_view_call_sheets,
+    },
+    {
+      key: "documents",
+      href: `/projects/${projectId}/documents`,
+      label: "Documents",
+      icon: FolderOpen,
+      visible: () => true,
     },
     {
       key: "production-reports",
@@ -118,16 +124,9 @@ function projectNav(
       visible: (p) => p.can_view_set_assistant,
     },
     {
-      key: "documents",
-      href: `/projects/${projectId}/documents`,
-      label: "Documents",
-      icon: FolderOpen,
-      visible: () => true,
-    },
-    {
       key: "archive",
       href: `/projects/${projectId}/archive`,
-      label: "Archivio / Blocco",
+      label: "Archive / Lock",
       icon: Archive,
       visible: (_p, isDept) => !isDept && canShowArchive,
     },
@@ -181,7 +180,7 @@ export function Sidebar() {
 
   const showDocumentsNav = canViewDocuments(user, companyRole, projectRole);
 
-  const isCostumiUser = isCostumiDepartment(projectPermissions, isDepartmentDashboard);
+  const isDepartmentNav = isDepartmentDashboard;
 
   const newProjectHref =
     needsPlatformSetup && isPlatformOwner ? "/platform-setup?step=project" : "/projects/new";
@@ -247,7 +246,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        {!isCostumiUser && (
+        {!isDepartmentNav && (
           <>
             <p className="mb-2 px-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--text-muted)]">
               Piattaforma

@@ -19,7 +19,8 @@ import {
 import { useSyncProjectFromUrl } from "@/hooks/useSyncProjectFromUrl";
 import { useProject } from "@/lib/context/PlatformContext";
 import type { CastCrewStatus } from "@/lib/types";
-import { Plus, Users } from "lucide-react";
+import { Loader2, Plus, Users } from "lucide-react";
+import { operationFailed } from "@/lib/utils/user-facing-error";
 import { useState } from "react";
 
 const STATUS_LABELS: Record<CastCrewStatus, string> = {
@@ -30,8 +31,13 @@ const STATUS_LABELS: Record<CastCrewStatus, string> = {
 
 export default function CastCrewPage() {
   const { projectId, isProjectReady } = useSyncProjectFromUrl();
-  const { castCrew, addCastCrewMember, canEditProject, refreshProjectData } =
-    useProject();
+  const {
+    castCrew,
+    addCastCrewMember,
+    canEditProject,
+    refreshProjectData,
+    isLoadingProjectData,
+  } = useProject();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -73,7 +79,11 @@ export default function CastCrewPage() {
 
     if (!member) {
       setToastVariant("error");
-      setToast("Errore durante il salvataggio su Supabase. Controlla la console.");
+      setToast(
+        operationFailed(
+          "Could not save cast & crew member. Check permissions and try again."
+        )
+      );
       return;
     }
 
@@ -97,9 +107,17 @@ export default function CastCrewPage() {
     return (
       <EmptyState
         icon={Users}
-        title="Nessun progetto attivo"
-        description="Seleziona un progetto per gestire Cast & Crew."
+        title="No active project"
+        description="Select a project to manage cast and crew."
       />
+    );
+  }
+
+  if (isLoadingProjectData) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-[var(--text-muted)]" />
+      </div>
     );
   }
 
@@ -121,8 +139,8 @@ export default function CastCrewPage() {
       {castCrew.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="Nessuna persona presente"
-          description="Aggiungi cast e crew per gestire convocazioni e permessi."
+          title="No cast or crew listed yet"
+          description="Add talent, department heads and crew to coordinate calls and access."
           action={
             canEditProject && (
               <Button onClick={() => setOpen(true)} size="sm">

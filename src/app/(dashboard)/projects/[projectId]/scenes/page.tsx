@@ -16,13 +16,14 @@ import {
 } from "@/components/ui/Table";
 import { useSyncProjectFromUrl } from "@/hooks/useSyncProjectFromUrl";
 import { useProject } from "@/lib/context/PlatformContext";
-import { FileText, Trash2 } from "lucide-react";
+import { FileText, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
 export default function ScenesPage() {
-  const { projectId } = useSyncProjectFromUrl();
-  const { scenes, deleteScene, canEditProject } = useProject();
+  const { projectId, isProjectReady } = useSyncProjectFromUrl();
+  const { scenes, deleteScene, canEditProject, isLoadingProjectData } =
+    useProject();
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const sceneToDelete = scenes.find((s) => s.id === deleteId);
@@ -34,18 +35,26 @@ export default function ScenesPage() {
     }
   };
 
+  if (!isProjectReady || isLoadingProjectData) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-[var(--text-muted)]" />
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader
-        title="Scene"
-        description={`${scenes.length} scene nel progetto attivo`}
+        title="Scenes"
+        description={`${scenes.length} scenes in this project`}
       />
 
       {scenes.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title="Nessun dato presente"
-          description="Usa Script Breakdown AI per generare le scene dal copione."
+          title="No scenes saved yet"
+          description="Run Script Breakdown AI or add scenes manually to build your script database."
           action={
             <Link href={`/projects/${projectId}/script-breakdown`}>
               <Button size="sm" variant="outline">Apri Script Breakdown</Button>

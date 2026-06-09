@@ -6,7 +6,6 @@ import {
   isPlatformOwnerUser,
   isProjectMembershipActive,
 } from "@/lib/access-control";
-import { createDemoProjectData } from "@/lib/mock-data";
 import {
   canArchiveProject,
   canCreateProject,
@@ -2245,12 +2244,3 @@ export function useAuth() {
   };
 }
 
-export function getMockAIExtractedScenes(projectId: string): Scene[] {
-  const demo = createDemoProjectData(projectId, "Demo", "Demo");
-  return demo.scenes.map((s, i) => ({
-    ...s,
-    id: `ai-${projectId}-${i}-${Date.now()}`,
-    scene_number: `${s.scene_number}A`,
-    production_notes: "Estratto automaticamente — verificare numerazione.",
-  }));
-}

@@ -30,9 +30,11 @@ import {
   FileText,
   Plus,
   Save,
+  Loader2,
   Send,
   Sparkles,
 } from "lucide-react";
+import { operationFailed } from "@/lib/utils/user-facing-error";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -65,6 +67,7 @@ export default function CallSheetsPage() {
     callSheetRecipients,
     refreshCallSheetDistribution,
     refreshProjectMembers,
+    isLoadingProjectData,
   } = useProject();
 
   const [tab, setTab] = useState<Tab>("generator");
@@ -132,7 +135,7 @@ export default function CallSheetsPage() {
       date: day.date,
       location: location?.name ?? "—",
       maps_link: location?.maps_link ?? "",
-      weather_notes: "Aggiornare previsioni meteo il giorno prima delle riprese.",
+      weather_notes: "",
       schedule: [
         { time: day.general_crew_call, activity: "Convocazione crew generale" },
         { time: day.makeup_call, activity: "Convocazione trucco e parrucco" },
@@ -181,7 +184,7 @@ export default function CallSheetsPage() {
       notify(`Call sheet v${version} generated for ${day.day_number}.`);
     } else {
       notify(
-        `Failed to save call sheet: ${saveError ?? "unknown error"}`,
+        operationFailed(saveError ?? "Could not save call sheet"),
         "error"
       );
     }
@@ -247,14 +250,14 @@ export default function CallSheetsPage() {
       } else {
         const { error: saveError } = await saveCallSheet(updated);
         if (saveError) {
-          notify(`Failed to save call sheet: ${saveError}`, "error");
+          notify(operationFailed(saveError), "error");
           return;
         }
       }
     } else {
       const { error: saveError } = await saveCallSheet(updated);
       if (saveError) {
-        notify(`Failed to save call sheet: ${saveError}`, "error");
+        notify(operationFailed(saveError), "error");
         return;
       }
     }
@@ -279,7 +282,7 @@ export default function CallSheetsPage() {
       notify(`Call sheet v${saved.version} saved.`);
     } else {
       notify(
-        `Failed to save call sheet: ${saveError ?? "unknown error"}`,
+        operationFailed(saveError ?? "Could not save call sheet"),
         "error"
       );
     }
@@ -337,7 +340,7 @@ export default function CallSheetsPage() {
       });
       if (!response.ok) {
         const data = (await response.json().catch(() => ({}))) as { error?: string };
-        notify(data.error ?? "PDF export failed", "error");
+        notify(operationFailed(data.error ?? "PDF export failed"), "error");
         return;
       }
       const blob = await response.blob();
@@ -349,7 +352,7 @@ export default function CallSheetsPage() {
       URL.revokeObjectURL(url);
       notify("PDF downloaded.");
     } catch {
-      notify("Network error during PDF export", "error");
+      notify(operationFailed("Network error during PDF export"), "error");
     } finally {
       setIsExporting(false);
     }
@@ -384,7 +387,7 @@ export default function CallSheetsPage() {
       });
       if (!response.ok) {
         const data = (await response.json().catch(() => ({}))) as { error?: string };
-        notify(data.error ?? "PDF export failed", "error");
+        notify(operationFailed(data.error ?? "PDF export failed"), "error");
         return;
       }
       const blob = await response.blob();
@@ -396,7 +399,7 @@ export default function CallSheetsPage() {
       URL.revokeObjectURL(url);
       notify("PDF downloaded.");
     } catch {
-      notify("Network error during PDF export", "error");
+      notify(operationFailed("Network error during PDF export"), "error");
     } finally {
       setIsExporting(false);
     }
@@ -414,6 +417,14 @@ export default function CallSheetsPage() {
         title="No active project"
         description="Select a project to manage call sheets."
       />
+    );
+  }
+
+  if (isLoadingProjectData) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-[var(--text-muted)]" />
+      </div>
     );
   }
 

@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { useSyncProjectFromUrl } from "@/hooks/useSyncProjectFromUrl";
 import { useProject } from "@/lib/context/PlatformContext";
 import type { ShootingDay } from "@/lib/types";
-import { Calendar, Plus } from "lucide-react";
+import { Calendar, Loader2, Plus } from "lucide-react";
 import { useState } from "react";
 
 function ScheduleCell({ label, value }: { label: string; value: string }) {
@@ -26,7 +26,14 @@ function ScheduleCell({ label, value }: { label: string; value: string }) {
 
 export default function ShootingDaysPage() {
   const { projectId, isProjectReady } = useSyncProjectFromUrl();
-  const { shootingDays, addShootingDay, locations, scenes, canEditProject } = useProject();
+  const {
+    shootingDays,
+    addShootingDay,
+    locations,
+    scenes,
+    canEditProject,
+    isLoadingProjectData,
+  } = useProject();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Partial<ShootingDay>>({
     day_number: "", date: new Date().toISOString().split("T")[0],
@@ -73,16 +80,24 @@ export default function ShootingDaysPage() {
     return (
       <EmptyState
         icon={Calendar}
-        title="Nessun progetto attivo"
-        description="Seleziona un progetto per gestire le giornate di ripresa."
+        title="No active project"
+        description="Select a project to plan shooting days."
       />
+    );
+  }
+
+  if (isLoadingProjectData) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-[var(--text-muted)]" />
+      </div>
     );
   }
 
   return (
     <div>
       <PageHeader
-        title="Giornate di ripresa"
+        title="Shooting Days"
         description={`${shootingDays.length} giornate nel progetto attivo`}
         actions={canEditProject && (
           <Button onClick={() => setOpen(true)} size="sm">
@@ -94,8 +109,8 @@ export default function ShootingDaysPage() {
       {shootingDays.length === 0 ? (
         <EmptyState
           icon={Calendar}
-          title="Nessun dato presente"
-          description="Pianifica le giornate di ripresa con orari, location e scene."
+          title="No shooting days planned yet"
+          description="Create your first shooting day to generate a call sheet."
           action={
             canEditProject && (
               <Button onClick={() => setOpen(true)} size="sm">Aggiungi giornata</Button>

@@ -10,6 +10,7 @@ import { useSyncProjectFromUrl } from "@/hooks/useSyncProjectFromUrl";
 import { useProject } from "@/lib/context/PlatformContext";
 import { departmentToAssistantRole } from "@/lib/permissions/project-permissions";
 import { generateAssistantResponse, SUGGESTED_QUESTIONS } from "@/lib/utils/assistant";
+import { somethingWentWrong } from "@/lib/utils/user-facing-error";
 import type { SetAssistantRole } from "@/lib/types";
 import { Bot, Calendar, FileText, Loader2, MapPin, Send, User, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -41,6 +42,7 @@ export default function SetAssistantPage() {
     setAssistantRole,
     activeProjectMembership,
     isDepartmentDashboard,
+    isLoadingProjectData,
   } = useProject();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -118,7 +120,11 @@ export default function SetAssistantPage() {
           { id: nextId("a"), role: "assistant", content: fallbackResponse },
         ]);
         setToastVariant("error");
-        setToast(data.error ?? "Errore Set Assistant, risposta locale usata.");
+        setToast(
+          somethingWentWrong(
+            data.error ?? "Set Assistant unavailable — local fallback used"
+          )
+        );
         scrollToBottom();
         return;
       }
@@ -154,7 +160,7 @@ export default function SetAssistantPage() {
         { id: nextId("a"), role: "assistant", content: fallbackResponse },
       ]);
       setToastVariant("error");
-      setToast("Errore di rete, risposta locale usata.");
+      setToast(somethingWentWrong("Network error — local fallback used"));
       scrollToBottom();
     } finally {
       setIsLoading(false);
@@ -172,9 +178,17 @@ export default function SetAssistantPage() {
     return (
       <EmptyState
         icon={Bot}
-        title="Nessun progetto attivo"
-        description="Seleziona un progetto per usare Set Assistant."
+        title="No active project"
+        description="Select a project to use Set Assistant."
       />
+    );
+  }
+
+  if (isLoadingProjectData) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-[var(--text-muted)]" />
+      </div>
     );
   }
 
@@ -258,8 +272,8 @@ export default function SetAssistantPage() {
             {messages.length === 0 ? (
               <EmptyState
                 icon={Bot}
-                title="Chiedi informazioni operative sul progetto attivo."
-                description="Orari, location, cast, scene e note di produzione — risposte basate sui dati del progetto."
+                title="Ask Set Assistant"
+                description="Get answers about schedules, locations, cast, scenes and production notes grounded in your project data."
               />
             ) : (
               messages.map((msg) => (

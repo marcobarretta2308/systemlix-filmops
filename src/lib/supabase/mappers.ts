@@ -223,6 +223,18 @@ export function mapLocation(row: any): Location {
     parking_notes: row.parking_notes ?? "",
     access_notes: row.access_notes ?? "",
     production_notes: row.production_notes ?? "",
+    canonical_name: row.canonical_name ?? row.name,
+    sub_location: row.sub_location ?? "",
+    location_type: row.location_type ?? "unknown",
+    status: row.status ?? "scouting",
+    permit_status: row.permit_status ?? "",
+    notes: row.notes ?? "",
+    source: row.source ?? "",
+    raw_name: row.raw_name ?? "",
+    confidence_score:
+      row.confidence_score != null ? Number(row.confidence_score) : undefined,
+    scene_count: row.scene_count ?? undefined,
+    metadata: row.metadata ?? {},
     created_at: row.created_at,
   };
 }

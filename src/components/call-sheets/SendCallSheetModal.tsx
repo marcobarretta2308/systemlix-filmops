@@ -69,7 +69,11 @@ export function SendCallSheetModal({
     const result = await onSend([...selectedGroups], [...selectedUsers]);
     setSubmitting(false);
     if (!result.ok) {
-      setError(result.error ?? "Distribution failed: unknown error");
+      setError(
+        result.error
+          ? `Operation failed: ${result.error}`
+          : "Operation failed: Could not send call sheet"
+      );
       return;
     }
     setSelectedGroups(new Set());

@@ -65,8 +65,8 @@ export function ReadReceiptsPanel({
   if (distributions.length === 0) {
     return (
       <PremiumCard padding="md">
-        <p className="text-[13px] text-[var(--text-muted)]">
-          No call sheet distributions yet. Send a call sheet to start tracking read receipts.
+        <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
+          No call sheets sent yet. Send a call sheet to start collecting acknowledgements.
         </p>
       </PremiumCard>
     );
