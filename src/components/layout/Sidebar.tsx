@@ -36,7 +36,11 @@ type NavItemDef = {
   visible?: (permissions: ProjectPermissions, isDepartment: boolean) => boolean;
 };
 
-function projectNav(projectId: string, department?: string | null): NavItemDef[] {
+function projectNav(
+  projectId: string,
+  department?: string | null,
+  canShowArchive = false
+): NavItemDef[] {
   const departmentLabel = getDepartmentDashboardLabel(department);
 
   return [
@@ -106,9 +110,9 @@ function projectNav(projectId: string, department?: string | null): NavItemDef[]
     {
       key: "archive",
       href: `/projects/${projectId}/archive`,
-      label: "Archivio",
+      label: "Archivio / Blocco",
       icon: Archive,
-      visible: (p, isDept) => !isDept && p.can_manage_access,
+      visible: (_p, isDept) => !isDept && canShowArchive,
     },
   ];
 }
@@ -152,6 +156,7 @@ export function Sidebar() {
     projectPermissions,
     isDepartmentDashboard,
     canManageAccess,
+    canArchiveProject,
     accessibleProjectsAll,
   } = useProject();
 
@@ -176,7 +181,11 @@ export function Sidebar() {
   ];
 
   const projectLinks = activeProject
-    ? projectNav(activeProject.id, projectPermissions.department).filter((item) => {
+    ? projectNav(
+        activeProject.id,
+        projectPermissions.department,
+        canArchiveProject
+      ).filter((item) => {
         const defaultVisible = item.visible
           ? item.visible(projectPermissions, isDepartmentDashboard)
           : true;

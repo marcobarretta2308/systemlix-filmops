@@ -189,8 +189,9 @@ export function ProjectGuard({ children }: { children: ReactNode }) {
       if (isProjectFinished(activeProject.status)) {
         return (
           <AccessDenied
-            title="Progetto archiviato"
-            message="Questo progetto è stato archiviato. Contatta Systemlix per riattivare l'accesso."
+            title="Accesso progetto non disponibile"
+            message="Questo progetto è stato archiviato o bloccato. Contatta Systemlix o la produzione per maggiori informazioni."
+            showContact={false}
           />
         );
       }
@@ -205,6 +206,15 @@ export function ProjectGuard({ children }: { children: ReactNode }) {
       !isPlatformOwner &&
       companyRole !== "company_admin"
     ) {
+      if (isProjectFinished(activeProject.status)) {
+        return (
+          <AccessDenied
+            title="Accesso progetto non disponibile"
+            message="Questo progetto è stato archiviato o bloccato. Contatta Systemlix o la produzione per maggiori informazioni."
+            showContact={false}
+          />
+        );
+      }
       return (
         <AccessDenied message="Il tuo account non è abilitato per questo progetto o l'accesso è stato revocato." />
       );

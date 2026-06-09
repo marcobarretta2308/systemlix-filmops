@@ -16,9 +16,10 @@ import {
 import { Toast } from "@/components/ui/Toast";
 import { Modal } from "@/components/ui/Modal";
 import { useSyncProjectFromUrl } from "@/hooks/useSyncProjectFromUrl";
-import { useAuth, useProject } from "@/lib/context/PlatformContext";
+import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
 import type { ArchiveAction } from "@/lib/types";
-import { Archive, AlertTriangle, Download, Lock, RotateCcw } from "lucide-react";
+import { PROJECT_STATUS_LABELS } from "@/lib/utils/project-status";
+import { Archive, AlertTriangle, Download, Loader2, Lock, RotateCcw } from "lucide-react";
 import { useState } from "react";
 
 const ACTION_LABELS: Record<string, string> = {
@@ -31,65 +32,141 @@ const ACTION_LABELS: Record<string, string> = {
   project_reactivated: "Progetto riattivato",
 };
 
+type ToastState = { message: string; variant: "success" | "error" } | null;
+
 export default function ArchivePage() {
-  const { project } = useSyncProjectFromUrl();
-  const { user } = useAuth();
+  const { project: urlProject } = useSyncProjectFromUrl();
+  const { user, isPlatformOwner } = useAuth();
+  const { canManagePlatform } = useCompany();
   const {
+    activeProject,
     archiveProject,
     reactivateProject,
     archiveLogs,
     canArchiveProject,
     canReactivateProject,
   } = useProject();
+  const project = urlProject ?? activeProject;
   const [modalAction, setModalAction] = useState<ArchiveAction | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastState>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  if (!project) return <p className="text-[13px] text-[var(--text-muted)]">Progetto non trovato.</p>;
+  const canManageLifecycle = isPlatformOwner || canManagePlatform;
+
+  if (!project) {
+    return <p className="text-[13px] text-[var(--text-muted)]">Progetto non trovato.</p>;
+  }
+
+  if (!canArchiveProject) {
+    return (
+      <p className="text-[13px] text-[var(--text-muted)]">
+        Non hai i permessi per visualizzare l&apos;archivio di questo progetto.
+      </p>
+    );
+  }
+
+  const showToast = (message: string, variant: "success" | "error") => {
+    setToast({ message, variant });
+  };
 
   const handleConfirm = async () => {
-    if (!modalAction) return;
-    if (modalAction === "project_exported") {
-      await archiveProject("project_exported", "Export richiesto");
-      setToast("Esportazione dati progetto — pronta per integrazione backend.");
-    } else {
-      await archiveProject(modalAction);
-      if (["project_archived", "project_locked"].includes(modalAction)) {
-        setToast("Progetto aggiornato. Gli accessi operativi sono disabilitati per i non admin.");
+    if (!modalAction || submitting) return;
+    setSubmitting(true);
+    try {
+      if (modalAction === "project_exported") {
+        const result = await archiveProject("project_exported", "Export richiesto");
+        if (result.ok) {
+          showToast("Esportazione dati progetto — pronta per integrazione backend.", "success");
+        } else {
+          showToast(result.error ?? "Errore durante l'export.", "error");
+        }
+      } else {
+        const result = await archiveProject(modalAction);
+        if (result.ok) {
+          const msg =
+            modalAction === "project_archived"
+              ? "Progetto archiviato. Gli accessi operativi non admin sono stati revocati."
+              : "Progetto bloccato. Gli accessi operativi non admin sono stati revocati.";
+          showToast(msg, "success");
+        } else {
+          showToast(result.error ?? "Errore durante l'operazione.", "error");
+        }
       }
+    } finally {
+      setSubmitting(false);
+      setModalAction(null);
     }
-    setModalAction(null);
   };
 
   const handleReactivate = async () => {
-    await reactivateProject();
-    setToast("Progetto riattivato con successo.");
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const result = await reactivateProject();
+      if (result.ok) {
+        showToast(
+          "Progetto riattivato. Gli accessi utenti vanno riabilitati manualmente.",
+          "success"
+        );
+      } else {
+        showToast(result.error ?? "Errore durante la riattivazione.", "error");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const performerName = (userId: string) =>
     userId === user?.id ? user.full_name : userId;
 
+  const isFinished = project.status === "archived" || project.status === "locked";
+
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Archivio e blocco"
-        description="Gestione ciclo di vita e accessi del progetto"
+        title="Archivio / Blocco progetto"
+        description={project.title}
         badge={<StatusBadge status={project.status} />}
       />
 
-      {/* Warning */}
+      <PremiumCard padding="md">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">
+              Progetto
+            </p>
+            <p className="mt-1 text-[16px] font-medium text-[var(--text-primary)]">
+              {project.title}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">
+              Stato attuale
+            </p>
+            <p className="mt-1 text-[16px] font-medium text-[var(--text-primary)]">
+              {PROJECT_STATUS_LABELS[project.status]}
+            </p>
+          </div>
+          {isFinished && (
+            <p className="text-[12px] text-[var(--text-muted)] max-w-sm leading-relaxed">
+              Gli utenti non admin non possono accedere. I dati del progetto restano conservati.
+            </p>
+          )}
+        </div>
+      </PremiumCard>
+
       <PremiumCard padding="md" className="border-[rgba(245,158,11,0.12)] bg-[rgba(245,158,11,0.03)]">
         <div className="flex items-start gap-3">
           <AlertTriangle className="h-4 w-4 text-[var(--accent-amber)] shrink-0 mt-0.5 opacity-80" />
           <div>
             <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
-              Archiviare o bloccare un progetto limita gli accessi operativi.
-              I dati restano conservati ma cast, crew e reparti non admin non potranno modificare contenuti.
+              Archiviare o bloccare un progetto revoca gli accessi operativi per cast, crew e reparti.
+              I dati restano conservati. Solo il Platform Owner può archiviare, bloccare o riattivare.
             </p>
           </div>
         </div>
       </PremiumCard>
 
-      {/* Actions */}
       <section>
         <SectionTitle title="Azioni disponibili" />
         <div className="grid gap-[var(--card-gap)] sm:grid-cols-2">
@@ -99,10 +176,16 @@ export default function ArchivePage() {
               <div className="flex-1">
                 <p className="text-[14px] text-[var(--text-primary)]">Esporta dati</p>
                 <p className="text-[12px] text-[var(--text-muted)] mt-1 leading-relaxed">
-                  Richiedi export completo del progetto.
+                  Richiedi export completo del progetto (placeholder).
                 </p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={() => setModalAction("project_exported")}>
-                  Esporta
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  disabled={submitting}
+                  onClick={() => setModalAction("project_exported")}
+                >
+                  Export dati
                 </Button>
               </div>
             </div>
@@ -114,16 +197,16 @@ export default function ArchivePage() {
               <div className="flex-1">
                 <p className="text-[14px] text-[var(--text-primary)]">Archivia progetto</p>
                 <p className="text-[12px] text-[var(--text-muted)] mt-1 leading-relaxed">
-                  Mantiene i dati, disabilita l&apos;accesso operativo.
+                  Imposta stato archiviato e revoca accessi operativi non admin.
                 </p>
                 <Button
                   variant="outline"
                   size="sm"
                   className="mt-3"
-                  disabled={!canArchiveProject}
+                  disabled={!canManageLifecycle || submitting || project.status === "archived"}
                   onClick={() => setModalAction("project_archived")}
                 >
-                  Archivia
+                  Archivia progetto
                 </Button>
               </div>
             </div>
@@ -133,34 +216,39 @@ export default function ArchivePage() {
             <div className="flex items-start gap-3">
               <Lock className="h-4 w-4 text-[var(--text-muted)] shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-[14px] text-[var(--text-primary)]">Blocca accessi</p>
+                <p className="text-[14px] text-[var(--text-primary)]">Blocca progetto</p>
                 <p className="text-[12px] text-[var(--text-muted)] mt-1 leading-relaxed">
-                  Blocca cast, crew e utenti non admin.
+                  Imposta stato bloccato e revoca accessi operativi non admin.
                 </p>
                 <Button
                   variant="danger"
                   size="sm"
                   className="mt-3"
-                  disabled={!canArchiveProject}
+                  disabled={!canManageLifecycle || submitting || project.status === "locked"}
                   onClick={() => setModalAction("project_locked")}
                 >
-                  Blocca
+                  Blocca progetto
                 </Button>
               </div>
             </div>
           </PremiumCard>
 
-          {(project.status === "archived" || project.status === "locked") && canReactivateProject && (
+          {isFinished && canReactivateProject && (
             <PremiumCard padding="md" className="border-[var(--border-default)]">
               <div className="flex items-start gap-3">
                 <RotateCcw className="h-4 w-4 text-[var(--text-muted)] shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-[14px] text-[var(--text-primary)]">Riattiva progetto</p>
                   <p className="text-[12px] text-[var(--text-muted)] mt-1 leading-relaxed">
-                    Ripristina gli accessi operativi per il team.
+                    Ripristina stato attivo. Gli accessi revocati vanno riassegnati manualmente.
                   </p>
-                  <Button size="sm" className="mt-3" onClick={handleReactivate}>
-                    <RotateCcw className="h-3.5 w-3.5" />Riattiva
+                  <Button
+                    size="sm"
+                    className="mt-3"
+                    disabled={submitting}
+                    onClick={() => setModalAction("project_reactivated")}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />Riattiva progetto
                   </Button>
                 </div>
               </div>
@@ -169,10 +257,11 @@ export default function ArchivePage() {
         </div>
       </section>
 
-      {/* Log */}
-      {archiveLogs.length > 0 && (
-        <section>
-          <SectionTitle title="Log attività" description="Storico operazioni sul progetto" />
+      <section>
+        <SectionTitle title="Log attività" description="Storico operazioni sul progetto" />
+        {archiveLogs.length === 0 ? (
+          <p className="text-[13px] text-[var(--text-muted)]">Nessuna operazione registrata.</p>
+        ) : (
           <Table>
             <TableHead>
               <TableRow>
@@ -197,22 +286,46 @@ export default function ArchivePage() {
               ))}
             </TableBody>
           </Table>
-        </section>
-      )}
+        )}
+      </section>
 
-      <Modal open={modalAction !== null} onClose={() => setModalAction(null)} title="Conferma azione">
+      <Modal
+        open={modalAction !== null}
+        onClose={() => !submitting && setModalAction(null)}
+        title="Conferma azione"
+      >
         <p className="text-[13px] text-[var(--text-muted)] leading-relaxed mb-6">
-          Confermi questa operazione? L&apos;azione verrà registrata nel log.
+          {modalAction === "project_reactivated"
+            ? "Confermi la riattivazione del progetto? L'azione verrà registrata nel log."
+            : "Confermi questa operazione? L'azione verrà registrata nel log."}
         </p>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setModalAction(null)}>Annulla</Button>
-          <Button variant={modalAction === "project_locked" ? "danger" : "primary"} onClick={handleConfirm}>
-            Conferma
+          <Button variant="outline" disabled={submitting} onClick={() => setModalAction(null)}>
+            Annulla
+          </Button>
+          <Button
+            variant={modalAction === "project_locked" ? "danger" : "primary"}
+            disabled={submitting}
+            onClick={modalAction === "project_reactivated" ? handleReactivate : handleConfirm}
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                In corso…
+              </>
+            ) : (
+              "Conferma"
+            )}
           </Button>
         </div>
       </Modal>
 
-      <Toast message={toast ?? ""} open={!!toast} onClose={() => setToast(null)} />
+      <Toast
+        message={toast?.message ?? ""}
+        open={!!toast}
+        variant={toast?.variant ?? "info"}
+        onClose={() => setToast(null)}
+      />
     </div>
   );
 }

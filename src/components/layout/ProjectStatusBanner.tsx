@@ -17,22 +17,25 @@ export function ProjectStatusBanner() {
   const { status } = activeProject;
 
   if (isProjectFinished(status)) {
+    const statusLabel = PROJECT_STATUS_LABELS[status].toLowerCase();
+    const isLocked = status === "locked";
     return (
       <div className="mb-6 flex items-start gap-3 rounded-[var(--radius-md)] border border-[rgba(248,113,113,0.12)] bg-[rgba(248,113,113,0.04)] px-4 py-3">
         <Lock className="h-3.5 w-3.5 text-[var(--accent-red)] shrink-0 mt-0.5 opacity-80" />
         <div>
           <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
             <span className="text-[var(--text-primary)]">
-              Progetto {PROJECT_STATUS_LABELS[status].toLowerCase()}.
+              Progetto {statusLabel}.
             </span>{" "}
-            Gli accessi operativi sono stati revocati.
-            {!canManageCompany && !canManagePlatform
-              ? " Contatta Systemlix per riattivare l'accesso."
-              : " Solo gli amministratori possono modificare i dati."}
+            {isLocked
+              ? "Le modifiche sono bloccate per tutti tranne il Platform Owner."
+              : "Gli accessi operativi non admin sono stati revocati."}
+            {!canManagePlatform &&
+              " Contatta Systemlix o la produzione per maggiori informazioni."}
           </p>
-          {!canEditProject && (
+          {!canEditProject && canManageCompany && !canManagePlatform && (
             <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-              La modifica dei dati non è consentita per il tuo ruolo.
+              Puoi consultare i dati ma non modificarli in questo stato.
             </p>
           )}
         </div>

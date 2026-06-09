@@ -110,6 +110,7 @@ interface ProjectContextValue {
   accessibleProjects: Project[];
   accessibleProjectsAll: Project[];
   setActiveProject: (projectId: string) => void;
+  clearActiveProject: () => void;
   createProject: (data: {
     title: string;
     production_type: string;
@@ -119,9 +120,15 @@ interface ProjectContextValue {
     end_date?: string;
     workspace_id: string;
   }) => Promise<Project | null>;
-  updateProjectStatus: (status: ProjectStatus, notes?: string) => Promise<void>;
-  reactivateProject: () => Promise<void>;
-  archiveProject: (action: ArchiveAction, notes?: string) => Promise<void>;
+  updateProjectStatus: (
+    status: ProjectStatus,
+    notes?: string
+  ) => Promise<{ ok: boolean; error?: string }>;
+  reactivateProject: () => Promise<{ ok: boolean; error?: string }>;
+  archiveProject: (
+    action: ArchiveAction,
+    notes?: string
+  ) => Promise<{ ok: boolean; error?: string }>;
   addScene: (scene: Omit<Scene, "id" | "created_at" | "updated_at">) => Promise<Scene | null>;
   deleteScene: (sceneId: string) => Promise<void>;
   addCastCrewMember: (
@@ -430,10 +437,12 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
               (p) => p.company_id === validCompany
             );
             const storedProj = getStoredProjectId();
-            const validProj =
-              storedProj && companyProjs.some((p) => p.id === storedProj)
-                ? storedProj
-                : null;
+            const allowedProjIds = new Set(companyProjs.map((p) => p.id));
+            const validProj = resolveAutoProjectId(
+              storedProj,
+              allowedProjIds,
+              companyProjs
+            );
             setActiveProjectId(validProj);
             setStoredProjectId(validProj);
 
@@ -506,11 +515,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
                     )
                     .map((m) => m.project_id)
                 );
-            const validProj = isAdmin
-              ? storedProj && allowedIds.has(storedProj)
-                ? storedProj
-                : null
-              : resolveAutoProjectId(storedProj, allowedIds, projs);
+            const validProj = resolveAutoProjectId(storedProj, allowedIds, projs);
             setActiveProjectId(validProj);
             setStoredProjectId(validProj);
             initialProjectId = validProj;
@@ -1017,34 +1022,33 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         setProjectMembers(members);
       }
 
-      const firstWs = ws[0]?.id ?? null;
-      setActiveWorkspaceId(firstWs);
-      setStoredWorkspaceId(firstWs);
-
-      if (!isPlatformOwner && currentUserId) {
-        const allowedIds = new Set(
-          members
-            .filter(
-              (m) => m.user_id === currentUserId && m.access_status === "active"
-            )
-            .map((m) => m.project_id)
-        );
-        const membership = userCompanyMemberships.find(
-          (m) => m.company_id === companyId
-        );
-        const isAdmin = membership?.role === "company_admin";
-        const autoProjectId = isAdmin
-          ? null
-          : resolveAutoProjectId(getStoredProjectId(), allowedIds, projs);
-        if (autoProjectId) {
-          setActiveProjectId(autoProjectId);
-          setStoredProjectId(autoProjectId);
-          const proj = projs.find((p) => p.id === autoProjectId);
-          if (proj) {
-            setActiveWorkspaceId(proj.workspace_id);
-            setStoredWorkspaceId(proj.workspace_id);
-          }
+      const membership = userCompanyMemberships.find(
+        (m) => m.company_id === companyId
+      );
+      const isCompanyAdmin =
+        isPlatformOwner || membership?.role === "company_admin";
+      const allowedIds = isCompanyAdmin
+        ? new Set(projs.map((p) => p.id))
+        : new Set(
+            members
+              .filter(
+                (m) => m.user_id === currentUserId && m.access_status === "active"
+              )
+              .map((m) => m.project_id)
+          );
+      const autoProjectId = resolveAutoProjectId(null, allowedIds, projs);
+      if (autoProjectId) {
+        setActiveProjectId(autoProjectId);
+        setStoredProjectId(autoProjectId);
+        const proj = projs.find((p) => p.id === autoProjectId);
+        if (proj) {
+          setActiveWorkspaceId(proj.workspace_id);
+          setStoredWorkspaceId(proj.workspace_id);
         }
+      } else {
+        const firstWs = ws[0]?.id ?? null;
+        setActiveWorkspaceId(firstWs);
+        setStoredWorkspaceId(firstWs);
       }
     },
     [userCompanies, currentUserId, supabase, isPlatformOwner, userCompanyMemberships]
@@ -1071,6 +1075,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     },
     [accessibleProjectsAll, projects]
   );
+
+  const clearActiveProject = useCallback(() => {
+    setActiveProjectId(null);
+    setStoredProjectId(null);
+  }, []);
 
   const createCompany = useCallback(
     async (data: { name: string; type: string; status?: Company["status"] }) => {
@@ -1220,8 +1229,13 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateProjectStatus = useCallback(
-    async (status: ProjectStatus, notes?: string) => {
-      if (!supabase || !activeProjectId || !activeProject || !currentUserId) return;
+    async (
+      status: ProjectStatus,
+      notes?: string
+    ): Promise<{ ok: boolean; error?: string }> => {
+      if (!supabase || !activeProjectId || !activeProject || !currentUserId) {
+        return { ok: false, error: "Progetto o sessione non disponibile" };
+      }
       try {
         const updated = await db.updateProjectStatusRecord(
           supabase,
@@ -1245,16 +1259,25 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           const current = projMembers.filter((m) => m.project_id === activeProjectId);
           return [...other, ...current];
         });
-      } catch {
-        /* UI toast handled by page */
+        return { ok: true };
+      } catch (err) {
+        console.error("[FilmOps] updateProjectStatus error:", err);
+        const message =
+          err instanceof Error ? err.message : "Errore aggiornamento progetto";
+        return { ok: false, error: message };
       }
     },
     [activeProjectId, activeProject, currentUserId, supabase, updateProjectInState]
   );
 
   const archiveProject = useCallback(
-    async (action: ArchiveAction, notes?: string) => {
-      if (!supabase || !activeProjectId || !currentUserId) return;
+    async (
+      action: ArchiveAction,
+      notes?: string
+    ): Promise<{ ok: boolean; error?: string }> => {
+      if (!supabase || !activeProjectId || !currentUserId) {
+        return { ok: false, error: "Progetto o sessione non disponibile" };
+      }
       const statusMap: Partial<Record<ArchiveAction, ProjectStatus>> = {
         project_archived: "archived",
         project_locked: "locked",
@@ -1262,8 +1285,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       };
       const status = statusMap[action];
       if (status) {
-        await updateProjectStatus(status, notes);
-        return;
+        return updateProjectStatus(status, notes);
       }
       try {
         const log = await db.addArchiveLogRecord(
@@ -1274,16 +1296,22 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           notes
         );
         setArchiveLogs((prev) => [...prev, log]);
-      } catch {
-        /* ignore */
+        return { ok: true };
+      } catch (err) {
+        console.error("[FilmOps] archiveProject log error:", err);
+        const message =
+          err instanceof Error ? err.message : "Errore registrazione azione";
+        return { ok: false, error: message };
       }
     },
     [activeProjectId, currentUserId, updateProjectStatus, supabase]
   );
 
-  const reactivateProject = useCallback(async () => {
-    if (!activeProjectId) return;
-    await updateProjectStatus("active", "Progetto riattivato");
+  const reactivateProject = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    if (!activeProjectId) {
+      return { ok: false, error: "Nessun progetto selezionato" };
+    }
+    return updateProjectStatus("active", "Progetto riattivato");
   }, [activeProjectId, updateProjectStatus]);
 
   const addScene = useCallback(
@@ -1641,6 +1669,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       accessibleProjects,
       accessibleProjectsAll,
       setActiveProject,
+      clearActiveProject,
       createProject,
       updateProjectStatus,
       reactivateProject,
@@ -1714,6 +1743,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       accessibleProjects,
       accessibleProjectsAll,
       setActiveProject,
+      clearActiveProject,
       createProject,
       updateProjectStatus,
       reactivateProject,

@@ -102,7 +102,7 @@ export function canEditProject(
   }
 
   if (isProjectRestricted(project.status)) {
-    return canManagePlatform(user, companyRole) || companyRole === "company_admin";
+    return canManagePlatform(user, companyRole);
   }
 
   if (project.status === "paused") {
@@ -135,7 +135,7 @@ export function canManageScenesAndSchedule(
 }
 
 export function canReactivateProject(user: User | null, companyRole: CompanyRole): boolean {
-  return canManagePlatform(user, companyRole) || companyRole === "company_admin";
+  return canManagePlatform(user, companyRole);
 }
 
 export function canViewProject(
