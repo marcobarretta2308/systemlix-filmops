@@ -66,6 +66,9 @@ create table if not exists public.projects (
   end_date date,
   archived_at timestamptz,
   locked_at timestamptz,
+  deleted_at timestamptz,
+  deleted_by uuid references auth.users(id),
+  is_deleted boolean not null default false,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

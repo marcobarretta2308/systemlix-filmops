@@ -89,6 +89,20 @@ export function canArchiveProject(
   return projectRole !== undefined && ADMIN_PROJECT_ROLES.includes(projectRole);
 }
 
+const DELETE_PROJECT_ROLES: ProjectRole[] = ["project_admin", "producer"];
+
+export function canDeleteProject(
+  user: User | null,
+  companyRole: CompanyRole,
+  projectRole?: ProjectRole
+): boolean {
+  if (canManagePlatform(user, companyRole)) return true;
+  if (companyRole === "company_admin") return true;
+  return (
+    projectRole !== undefined && DELETE_PROJECT_ROLES.includes(projectRole)
+  );
+}
+
 export function canEditProject(
   project: Project,
   user: User | null,
@@ -138,6 +152,10 @@ export function canReactivateProject(user: User | null, companyRole: CompanyRole
   return canManagePlatform(user, companyRole);
 }
 
+export function isProjectSoftDeleted(project: Project): boolean {
+  return Boolean(project.is_deleted);
+}
+
 export function canViewProject(
   project: Project,
   user: User | null,
@@ -146,6 +164,10 @@ export function canViewProject(
   projectMembership?: ProjectMember | null,
   companyMembership?: CompanyMember | null
 ): boolean {
+  if (isProjectSoftDeleted(project)) {
+    return canManagePlatform(user, companyRole) || companyRole === "company_admin";
+  }
+
   if (canManagePlatform(user, companyRole) || companyRole === "company_admin") return true;
 
   if (projectMembership && !isProjectMembershipActive(projectMembership)) {

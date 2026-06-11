@@ -178,6 +178,7 @@ export async function fetchAllProjects(
   const { data: projects, error: pErr } = await supabase
     .from("projects")
     .select("*")
+    .eq("is_deleted", false)
     .order("created_at", { ascending: false });
   if (pErr) throw pErr;
 
@@ -299,6 +300,7 @@ export async function fetchProjects(
     .from("projects")
     .select("*")
     .eq("company_id", companyId)
+    .eq("is_deleted", false)
     .order("created_at", { ascending: false });
   if (pErr) throw pErr;
 
@@ -314,6 +316,40 @@ export async function fetchProjects(
     projects: projectList,
     members,
   };
+}
+
+export async function softDeleteProjectRecord(
+  supabase: SupabaseClient,
+  projectId: string,
+  userId: string,
+  notes?: string
+): Promise<Project> {
+  const ts = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("projects")
+    .update({
+      is_deleted: true,
+      deleted_at: ts,
+      deleted_by: userId,
+      updated_at: ts,
+    })
+    .eq("id", projectId)
+    .eq("is_deleted", false)
+    .select()
+    .single();
+
+  if (error) throw error;
+  if (!data) throw new Error("Project not found or already deleted");
+
+  await addArchiveLogRecord(
+    supabase,
+    projectId,
+    userId,
+    "project_deleted",
+    notes ?? "Project moved to trash"
+  );
+
+  return mapProject(data);
 }
 
 async function enrichProjectMembersWithDisplayNames(

@@ -5,6 +5,7 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
   paused: "In pausa",
   archived: "Archiviato",
   locked: "Bloccato",
+  deleted: "Nel cestino",
 };
 
 export const PROJECT_STATUS_VARIANTS: Record<
@@ -15,6 +16,7 @@ export const PROJECT_STATUS_VARIANTS: Record<
   paused: "paused",
   archived: "archived",
   locked: "locked",
+  deleted: "archived",
 };
 
 export function isProjectPaused(status: ProjectStatus): boolean {

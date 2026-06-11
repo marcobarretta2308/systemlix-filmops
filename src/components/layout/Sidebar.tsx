@@ -11,7 +11,9 @@ import { cn } from "@/lib/utils/cn";
 import {
   Archive,
   Bot,
+  Brain,
   Building2,
+  Package,
   Calendar,
   Clapperboard,
   ClipboardList,
@@ -117,6 +119,23 @@ function projectNav(
       visible: (p) => p.can_view_production_reports,
     },
     {
+      key: "production-intelligence",
+      href: `/projects/${projectId}/production-intelligence`,
+      label: "Production Intelligence",
+      icon: Brain,
+      visible: (p) => p.can_view_set_assistant || p.can_view_call_sheets,
+    },
+    {
+      key: "production-pack",
+      href: `/projects/${projectId}/production-pack`,
+      label: "Production Pack",
+      icon: Package,
+      visible: (p) =>
+        p.can_view_call_sheets ||
+        p.can_view_scenes ||
+        p.can_view_production_reports,
+    },
+    {
       key: "set-assistant",
       href: `/projects/${projectId}/set-assistant`,
       label: "Set Assistant",
@@ -174,6 +193,7 @@ export function Sidebar() {
     isDepartmentDashboard,
     canManageAccess,
     canArchiveProject,
+    canDeleteProject,
     accessibleProjectsAll,
     projectRole,
   } = useProject();
@@ -204,7 +224,7 @@ export function Sidebar() {
     ? projectNav(
         activeProject.id,
         projectPermissions.department,
-        canArchiveProject
+        canArchiveProject || canDeleteProject
       ).filter((item) => {
         if (item.key === "documents" && !showDocumentsNav) return false;
         const defaultVisible = item.visible

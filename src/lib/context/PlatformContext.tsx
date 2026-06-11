@@ -10,6 +10,7 @@ import {
   canArchiveProject,
   canCreateProject,
   canCreateWorkspace,
+  canDeleteProject,
   canEditProject,
   canManageCompany,
   canManagePlatform,
@@ -135,6 +136,9 @@ interface ProjectContextValue {
     action: ArchiveAction,
     notes?: string
   ) => Promise<{ ok: boolean; error?: string }>;
+  deleteProject: (
+    confirmText: string
+  ) => Promise<{ ok: boolean; error?: string }>;
   addScene: (scene: Omit<Scene, "id" | "created_at" | "updated_at">) => Promise<Scene | null>;
   deleteScene: (sceneId: string) => Promise<void>;
   addCastCrewMember: (
@@ -176,6 +180,7 @@ interface ProjectContextValue {
   canReactivateProject: boolean;
   canViewProject: boolean;
   canArchiveProject: boolean;
+  canDeleteProject: boolean;
   projectPermissions: ProjectPermissions;
   isDepartmentDashboard: boolean;
   scenes: Scene[];
@@ -908,7 +913,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       companyRole === "platform_owner" ||
       companyRole === "company_admin";
     const companyProjects = projects.filter(
-      (p) => p.company_id === activeCompanyId
+      (p) => p.company_id === activeCompanyId && !p.is_deleted
     );
     if (isAdmin) return companyProjects;
     const ids = new Set(userProjectMemberships.map((m) => m.project_id));
@@ -938,7 +943,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     if (companies.length === 0) return true;
     if (!activeCompanyId) return true;
     if (companyWorkspaces.length === 0) return true;
-    const companyProjects = projects.filter((p) => p.company_id === activeCompanyId);
+    const companyProjects = projects.filter(
+      (p) => p.company_id === activeCompanyId && !p.is_deleted
+    );
     return companyProjects.length === 0;
   }, [
     isPlatformOwner,
@@ -1520,6 +1527,43 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     return updateProjectStatus("active", "Progetto riattivato");
   }, [activeProjectId, updateProjectStatus]);
 
+  const deleteProject = useCallback(
+    async (confirmText: string): Promise<{ ok: boolean; error?: string }> => {
+      if (!activeProjectId) {
+        return { ok: false, error: "Nessun progetto selezionato" };
+      }
+      try {
+        const response = await fetch(
+          `/api/projects/${activeProjectId}/delete`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ confirmText }),
+          }
+        );
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          message?: string;
+        };
+        if (!response.ok) {
+          return {
+            ok: false,
+            error: payload.error ?? `Request failed (${response.status})`,
+          };
+        }
+        setProjects((prev) => prev.filter((p) => p.id !== activeProjectId));
+        clearActiveProject();
+        return { ok: true };
+      } catch (err) {
+        console.error("[FilmOps] deleteProject error:", err);
+        const message =
+          err instanceof Error ? err.message : "Failed to delete project";
+        return { ok: false, error: message };
+      }
+    },
+    [activeProjectId, clearActiveProject]
+  );
+
   const addScene = useCallback(
     async (data: Omit<Scene, "id" | "created_at" | "updated_at">) => {
       if (!supabase || !activeProjectId) return null;
@@ -2026,6 +2070,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       updateProjectStatus,
       reactivateProject,
       archiveProject,
+      deleteProject,
       addScene,
       deleteScene,
       addCastCrewMember,
@@ -2064,6 +2109,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           )
         : false,
       canArchiveProject: canArchiveProject(
+        user,
+        companyRole ?? "viewer",
+        projectRole ?? undefined
+      ),
+      canDeleteProject: canDeleteProject(
         user,
         companyRole ?? "viewer",
         projectRole ?? undefined
@@ -2116,6 +2166,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       updateProjectStatus,
       reactivateProject,
       archiveProject,
+      deleteProject,
       addScene,
       deleteScene,
       addCastCrewMember,

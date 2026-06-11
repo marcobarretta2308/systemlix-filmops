@@ -100,6 +100,9 @@ export function mapProject(row: any): Project {
     end_date: row.end_date ?? undefined,
     archived_at: row.archived_at ?? undefined,
     locked_at: row.locked_at ?? undefined,
+    is_deleted: row.is_deleted ?? false,
+    deleted_at: row.deleted_at ?? undefined,
+    deleted_by: row.deleted_by ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? row.created_at,
   };

@@ -116,6 +116,30 @@ export function buildModuleCards(
       visible: permissions.can_view_production_reports,
     },
     {
+      key: "intelligence",
+      label: "Production Intelligence",
+      href: `${base}/production-intelligence`,
+      count: 0,
+      emptyTitle: "AI production checks",
+      emptyDescription:
+        "Run health checks, analyze call sheets and search project data.",
+      visible:
+        permissions.can_view_set_assistant || permissions.can_view_call_sheets,
+    },
+    {
+      key: "production-pack",
+      label: "Production Pack",
+      href: `${base}/production-pack`,
+      count: 0,
+      emptyTitle: "One-click PDF export",
+      emptyDescription:
+        "Generate a production-ready PDF package from your project data.",
+      visible:
+        permissions.can_view_call_sheets ||
+        permissions.can_view_scenes ||
+        permissions.can_view_production_reports,
+    },
+    {
       key: "assistant",
       label: "Set Assistant",
       href: `${base}/set-assistant`,

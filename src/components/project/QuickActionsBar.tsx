@@ -6,7 +6,9 @@ import type { ProjectPermissions } from "@/lib/permissions/project-permissions";
 import type { DashboardViewMode } from "@/lib/utils/project-dashboard";
 import {
   Bot,
+  Brain,
   Calendar,
+  Package,
   ClipboardList,
   FileText,
   MapPin,
@@ -88,6 +90,24 @@ export function QuickActionsBar({
         : `${base}/call-sheets`,
       icon: Send,
       visible: canSendCallSheet && Boolean(latestSendableSheetId),
+    },
+    {
+      label: "Run Production Check",
+      href: `${base}/production-intelligence`,
+      icon: Brain,
+      visible:
+        viewMode === "full" &&
+        (permissions.can_view_call_sheets || permissions.can_view_set_assistant),
+    },
+    {
+      label: "Export Production Pack",
+      href: `${base}/production-pack`,
+      icon: Package,
+      visible:
+        viewMode === "full" &&
+        (permissions.can_view_call_sheets ||
+          permissions.can_view_scenes ||
+          permissions.can_view_production_reports),
     },
     {
       label: "Ask Set Assistant",

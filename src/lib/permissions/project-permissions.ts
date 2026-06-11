@@ -335,6 +335,8 @@ const DEPARTMENT_USER_NAV_KEYS = new Set([
   "call-sheets",
   "documents",
   "production-reports",
+  "production-intelligence",
+  "production-pack",
   "set-assistant",
 ]);
 

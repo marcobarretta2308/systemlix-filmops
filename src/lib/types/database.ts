@@ -1,6 +1,6 @@
 // Supabase-ready database types for Systemlix FilmOps (multi-tenant)
 
-export type ProjectStatus = "active" | "paused" | "archived" | "locked";
+export type ProjectStatus = "active" | "paused" | "archived" | "locked" | "deleted";
 export type CompanyStatus = "active" | "suspended" | "archived";
 export type WorkspaceStatus = "active" | "archived";
 export type GlobalRole = "platform_owner" | "user";
@@ -50,6 +50,7 @@ export type SetAssistantRole =
 export type ArchiveAction =
   | "project_archived"
   | "project_locked"
+  | "project_deleted"
   | "access_revoked"
   | "user_suspended"
   | "user_reactivated"
@@ -108,6 +109,9 @@ export interface Project {
   end_date?: string;
   archived_at?: string;
   locked_at?: string;
+  is_deleted?: boolean;
+  deleted_at?: string;
+  deleted_by?: string;
   created_at: string;
   updated_at: string;
 }
