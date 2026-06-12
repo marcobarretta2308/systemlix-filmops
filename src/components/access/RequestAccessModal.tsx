@@ -17,8 +17,8 @@ export function RequestAccessModal({ open, onClose }: RequestAccessModalProps) {
           <Shield className="h-4 w-4 text-[var(--text-muted)]" />
         </div>
         <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
-          L&apos;accesso a Systemlix FilmOps è riservato a produzioni e team
-          autorizzati. Contatta Systemlix per richiedere l&apos;attivazione.
+          L&apos;accesso a FilmOps è riservato a produzioni e team
+          autorizzati. Contatta il team FilmOps per richiedere l&apos;attivazione.
         </p>
       </div>
       <div className="mt-6 flex justify-end">

@@ -147,7 +147,7 @@ export default function PlatformSetupPage() {
           Configura la prima produzione
         </h2>
         <p className="mt-2 text-[14px] text-[var(--text-muted)] leading-relaxed">
-          Crea una produzione, un workspace e un progetto per iniziare a usare Systemlix FilmOps.
+          Crea una produzione, un workspace e un progetto per iniziare a usare FilmOps.
         </p>
       </PremiumCard>
 
@@ -173,7 +173,7 @@ export default function PlatformSetupPage() {
                   label="Nome produzione"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Es. Systemlix Pictures"
+                  placeholder="Es. Acme Pictures"
                   required
                 />
                 <Select

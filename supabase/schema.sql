@@ -1,4 +1,4 @@
--- Systemlix FilmOps — Database schema
+-- FilmOps — Database schema
 -- Run in Supabase SQL Editor (after enabling uuid-ossp / pgcrypto)
 
 create extension if not exists "pgcrypto";

@@ -344,10 +344,12 @@ export default function CallSheetsPage() {
         return;
       }
       const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = "systemlix-call-sheet.pdf";
+      anchor.download = match?.[1] ?? "filmops-call-sheet.pdf";
       anchor.click();
       URL.revokeObjectURL(url);
       notify("PDF downloaded.");
@@ -391,10 +393,12 @@ export default function CallSheetsPage() {
         return;
       }
       const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = "systemlix-call-sheet.pdf";
+      anchor.download = match?.[1] ?? "filmops-call-sheet.pdf";
       anchor.click();
       URL.revokeObjectURL(url);
       notify("PDF downloaded.");

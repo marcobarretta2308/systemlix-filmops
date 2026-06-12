@@ -59,7 +59,7 @@ export default function SelectCompanyPage() {
           <div className="flex h-7 w-7 items-center justify-center rounded-[8px] bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
             <Clapperboard className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
           </div>
-          <span className="text-[13px] font-medium text-[var(--text-primary)]">Systemlix FilmOps</span>
+          <span className="text-[13px] font-medium text-[var(--text-primary)]">FilmOps</span>
         </div>
 
         <h1 className="text-[24px] font-medium text-[var(--text-primary)] tracking-tight">

@@ -202,7 +202,7 @@ export function createInitialStore(): PlatformStore {
 
   return {
     users: [
-      { id: IDS.userOwner, email: "owner@systemlix.it", full_name: "Platform Owner", global_role: "platform_owner" as const, auth_status: "active" as const, created_at: now },
+      { id: IDS.userOwner, email: "owner@filmops.it", full_name: "Platform Owner", global_role: "platform_owner" as const, auth_status: "active" as const, created_at: now },
       { id: IDS.userAlfa, email: "admin@alfa.it", full_name: "Marco Rossi", global_role: "user" as const, auth_status: "active" as const, created_at: now },
       { id: IDS.userBeta, email: "admin@beta.it", full_name: "Laura Bianchi", global_role: "user" as const, auth_status: "active" as const, created_at: now },
     ],
@@ -245,7 +245,7 @@ export function createInitialStore(): PlatformStore {
 }
 
 export const DEMO_LOGIN_USERS = [
-  { email: "owner@systemlix.it", label: "Platform Owner (vede tutto)" },
+  { email: "owner@filmops.it", label: "Platform Owner (vede tutto)" },
   { email: "admin@alfa.it", label: "Marco Rossi — Produzione Alfa" },
   { email: "admin@beta.it", label: "Laura Bianchi — Produzione Beta" },
 ] as const;

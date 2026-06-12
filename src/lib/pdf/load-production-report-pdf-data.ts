@@ -87,6 +87,7 @@ export async function loadProductionReportPdfData(
   const company = companyRow ? mapCompany(companyRow) : null;
 
   let shootingDayLabel = "—";
+  let shootingDayNumber = report.report_date;
   if (report.shooting_day_id) {
     const { data: dayRow } = await supabase
       .from("shooting_days")
@@ -95,6 +96,7 @@ export async function loadProductionReportPdfData(
       .single();
     if (dayRow) {
       const day = mapShootingDay(dayRow);
+      shootingDayNumber = day.day_number;
       shootingDayLabel = `Day ${day.day_number} · ${formatPdfDate(day.date)}`;
     }
   }
@@ -123,7 +125,7 @@ export async function loadProductionReportPdfData(
   ) as Record<string, string>;
 
   const data: ProductionReportPdfData = {
-    brand: "Systemlix FilmOps",
+    brand: "FilmOps",
     projectTitle: project.title,
     productionName: company?.name ?? "Production",
     reportTitle: dash(report.title) === "—" ? "Production Report" : report.title!,
@@ -187,6 +189,10 @@ export async function loadProductionReportPdfData(
 
   return {
     data,
-    filename: buildProductionReportFilename(project.title, report.report_date),
+    filename: buildProductionReportFilename(
+      project.title,
+      shootingDayNumber,
+      report.report_date
+    ),
   };
 }

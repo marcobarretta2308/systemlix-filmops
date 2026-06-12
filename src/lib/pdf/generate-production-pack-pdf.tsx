@@ -56,7 +56,7 @@ function ProductionPackFallbackPDF({
   data: ProductionPackPdfData;
   reason: string;
 }): ReactElement<DocumentProps> {
-  const brand = safeText(data.brand, "Systemlix FilmOps");
+  const brand = safeText(data.brand, "FilmOps");
   const title = safeText(data.projectTitle, "Untitled Project");
   return (
     <Document>

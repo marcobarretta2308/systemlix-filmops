@@ -1,4 +1,4 @@
-# Systemlix FilmOps — Manual QA Checklist
+# FilmOps — Manual QA Checklist
 
 Run after deploying to Vercel and applying Supabase migrations `006`–`009`.
 

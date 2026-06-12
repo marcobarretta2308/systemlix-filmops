@@ -505,13 +505,13 @@ export function CallSheetPDF({
   return (
     <Document
       title={`Call Sheet ${pdf.projectTitle} ${pdf.dayNumber}`}
-      author="Systemlix FilmOps"
+      author="FilmOps"
     >
       <Page size="A4" style={styles.page}>
         <View style={styles.header} wrap={false}>
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
-              <Text style={styles.brand}>Systemlix FilmOps</Text>
+              <Text style={styles.brand}>FilmOps</Text>
               <Text style={styles.projectTitle}>{pdf.projectTitle}</Text>
               <Text style={styles.productionMeta}>
                 {pdf.productionTitle} · {pdf.productionType}
@@ -747,7 +747,7 @@ export function CallSheetPDF({
 
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
-            Documento generato da Systemlix FilmOps
+            FilmOps · Call Sheet
           </Text>
           <Text style={styles.footerText}>Generato il {pdf.generatedAt}</Text>
           <Text

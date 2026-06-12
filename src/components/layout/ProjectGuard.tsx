@@ -120,14 +120,14 @@ export function ProjectGuard({ children }: { children: ReactNode }) {
     !PUBLIC_PATHS.includes(pathname)
   ) {
     return (
-      <AccessDenied message="Sessione attiva ma profilo non configurato. Contatta Systemlix o verifica public.profiles." />
+      <AccessDenied message="Sessione attiva ma profilo non configurato. Contatta il team FilmOps o verifica public.profiles." />
     );
   }
 
   if (isAuthenticated && user && authDenial) {
     return (
       <AccessDenied
-        message="Il tuo account non è abilitato o l'accesso è stato revocato. Contatta Systemlix."
+        message="Il tuo account non è abilitato o l'accesso è stato revocato. Contatta il team FilmOps."
       />
     );
   }
@@ -157,7 +157,7 @@ export function ProjectGuard({ children }: { children: ReactNode }) {
 
   if (isAdminRoute && !isPlatformOwner) {
     return (
-      <AccessDenied message="Questa sezione è riservata al Platform Owner Systemlix." />
+      <AccessDenied message="Questa sezione è riservata al Platform Owner FilmOps." />
     );
   }
 
@@ -190,7 +190,7 @@ export function ProjectGuard({ children }: { children: ReactNode }) {
         return (
           <AccessDenied
             title="Accesso progetto non disponibile"
-            message="Questo progetto è stato archiviato o bloccato. Contatta Systemlix o la produzione per maggiori informazioni."
+            message="Questo progetto è stato archiviato o bloccato. Contatta il team FilmOps o la produzione per maggiori informazioni."
             showContact={false}
           />
         );
@@ -210,7 +210,7 @@ export function ProjectGuard({ children }: { children: ReactNode }) {
         return (
           <AccessDenied
             title="Accesso progetto non disponibile"
-            message="Questo progetto è stato archiviato o bloccato. Contatta Systemlix o la produzione per maggiori informazioni."
+            message="Questo progetto è stato archiviato o bloccato. Contatta il team FilmOps o la produzione per maggiori informazioni."
             showContact={false}
           />
         );

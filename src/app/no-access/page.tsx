@@ -36,7 +36,7 @@ export default function NoAccessPage() {
             <Clapperboard className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
           </div>
           <span className="text-[13px] font-medium text-[var(--text-primary)]">
-            Systemlix FilmOps
+            FilmOps
           </span>
         </div>
 
@@ -51,8 +51,8 @@ export default function NoAccessPage() {
               </h1>
               <p className="mt-2 text-[13px] text-[var(--text-muted)] leading-relaxed">
                 Il tuo account non è ancora collegato a nessuna produzione.
-                L&apos;accesso a Systemlix FilmOps è riservato a produzioni e
-                team autorizzati — contatta Systemlix per richiedere
+                L&apos;accesso a FilmOps è riservato a produzioni e
+                team autorizzati — contatta il team FilmOps per richiedere
                 l&apos;attivazione.
               </p>
             </div>

@@ -118,7 +118,7 @@ export type ProBreakdownResult = {
   breakdown_run_id?: string | null;
 };
 
-export const SCRIPT_BREAKDOWN_PRO_PROMPT = `You are a professional film production script breakdown assistant for Systemlix FilmOps.
+export const SCRIPT_BREAKDOWN_PRO_PROMPT = `You are a professional film production script breakdown assistant for FilmOps.
 
 Analyze the screenplay and return a complete operational breakdown as JSON.
 

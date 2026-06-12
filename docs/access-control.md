@@ -1,12 +1,12 @@
-# Systemlix FilmOps — Controllo accessi
+# FilmOps — Controllo accessi
 
 ## Modello invite-only
 
-Systemlix FilmOps è una piattaforma **invite-only / admin-controlled**.
+FilmOps è una piattaforma **invite-only / admin-controlled**.
 
 - Nessun utente esterno può registrarsi liberamente.
 - Non esiste signup pubblico nell'applicazione.
-- Gli account vengono creati **solo** dal Platform Owner (Systemlix Admin).
+- Gli account vengono creati **solo** dal Platform Owner (FilmOps Admin).
 - Le produzioni non possono creare account globali in autonomia.
 
 ## Configurazione Supabase Auth
@@ -110,5 +110,5 @@ Su database esistenti eseguire:
 Se un utente autenticato non ha `company_members` attivi:
 
 - Viene reindirizzato a `/no-access`
-- Deve contattare Systemlix per l'assegnazione
+- Deve contattare il team FilmOps per l'assegnazione
 - **Non** può creare autonomamente una produzione

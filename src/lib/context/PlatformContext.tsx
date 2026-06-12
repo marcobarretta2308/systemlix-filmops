@@ -1169,7 +1169,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           const denial = getAuthDenialReason(profile);
           if (denial) {
             await supabase.auth.signOut();
-            return { error: "Account non abilitato. Contatta Systemlix." };
+            return { error: "Account non abilitato. Contatta il team FilmOps." };
           }
           if (data.session) {
             setSession(data.session);

@@ -1,4 +1,4 @@
--- Systemlix FilmOps — Row Level Security policies
+-- FilmOps — Row Level Security policies
 -- Run AFTER schema.sql
 
 alter table public.profiles enable row level security;

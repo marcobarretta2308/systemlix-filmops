@@ -260,7 +260,7 @@ export function Sidebar() {
           <Clapperboard className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
         </div>
         <div className="min-w-0">
-          <p className="text-[13px] font-medium text-[var(--text-primary)] leading-none">Systemlix</p>
+          <p className="text-[13px] font-medium text-[var(--text-primary)] leading-none">FilmOps</p>
           <p className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)] mt-0.5">FilmOps</p>
         </div>
       </div>

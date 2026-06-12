@@ -1,6 +1,6 @@
-const COMPANY_KEY = "systemlix_active_company_id";
-const WORKSPACE_KEY = "systemlix_active_workspace_id";
-const PROJECT_KEY = "systemlix_active_project_id";
+const COMPANY_KEY = "filmops_active_company_id";
+const WORKSPACE_KEY = "filmops_active_workspace_id";
+const PROJECT_KEY = "filmops_active_project_id";
 
 export function getStoredCompanyId(): string | null {
   if (typeof window === "undefined") return null;

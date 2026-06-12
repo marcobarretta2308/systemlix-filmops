@@ -80,7 +80,7 @@ export async function buildProductionPackData(
     }));
 
   const data: ProductionPackPdfData = {
-    brand: "Systemlix FilmOps",
+    brand: "FilmOps",
     projectTitle: safeText(ctx.project.title, "Untitled Project"),
     companyName: dash(company?.name),
     workspaceName: dash(workspace?.name),

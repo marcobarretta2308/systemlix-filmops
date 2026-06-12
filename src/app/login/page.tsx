@@ -77,7 +77,7 @@ export default function LoginPage() {
           <div className="flex h-7 w-7 items-center justify-center rounded-[8px] bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
             <Clapperboard className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
           </div>
-          <span className="text-[13px] font-medium text-[var(--text-primary)]">Systemlix FilmOps</span>
+          <span className="text-[13px] font-medium text-[var(--text-primary)]">FilmOps</span>
         </div>
 
         <div className="max-w-lg">
@@ -102,7 +102,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="text-[11px] text-[var(--text-muted)] opacity-60">© 2026 Systemlix</p>
+        <p className="text-[11px] text-[var(--text-muted)] opacity-60">© 2026 FilmOps</p>
       </div>
 
       <div className="flex flex-1 items-center justify-center p-6 sm:p-10 relative">
@@ -111,7 +111,7 @@ export default function LoginPage() {
             <div className="flex h-7 w-7 items-center justify-center rounded-[8px] bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
               <Clapperboard className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
             </div>
-            <span className="text-[13px] font-medium text-[var(--text-primary)]">Systemlix FilmOps</span>
+            <span className="text-[13px] font-medium text-[var(--text-primary)]">FilmOps</span>
           </div>
 
           <PremiumCard padding="lg" variant="elevated">

@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
 });
 
 function PageFooter({ brand }: { brand: string }) {
-  const safeBrand = safeText(brand, "Systemlix FilmOps", 80);
+  const safeBrand = safeText(brand, "FilmOps", 80);
   return (
     <Text
       style={styles.footer}
@@ -497,7 +497,7 @@ export function ProductionPackPDF({
 }: {
   data: ProductionPackPdfData;
 }): ReactElement<DocumentProps> {
-  const brand = safeText(data.brand, "Systemlix FilmOps");
+  const brand = safeText(data.brand, "FilmOps");
   const projectTitle = safeText(data.projectTitle, "Untitled Project");
 
   const snapshot = data.snapshot ?? {
@@ -516,7 +516,7 @@ export function ProductionPackPDF({
       <PackPage brand={brand} cover>
         <View style={styles.coverAccentBar} />
         <Text style={styles.coverHeader} hyphenationCallback={noHyphenation}>
-          SYSTEMLIX FILMOPS
+          FILMOPS
         </Text>
         <Text style={styles.coverMainTitle} hyphenationCallback={noHyphenation}>
           PRODUCTION PACK

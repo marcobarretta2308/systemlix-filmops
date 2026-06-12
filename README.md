@@ -1,4 +1,4 @@
-# Systemlix FilmOps
+# FilmOps
 
 Piattaforma SaaS **multi-tenant** per produzioni cinematografiche e audiovisive.
 
@@ -35,7 +35,7 @@ npm run dev
 
 | Email | Accesso |
 |-------|---------|
-| `owner@systemlix.it` | Tutte le produzioni |
+| `owner@filmops.it` | Tutte le produzioni |
 | `admin@alfa.it` | Solo Produzione Alfa |
 | `admin@beta.it` | Solo Produzione Beta |
 

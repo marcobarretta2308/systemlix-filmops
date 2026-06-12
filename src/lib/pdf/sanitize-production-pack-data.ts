@@ -18,7 +18,7 @@ export function sanitizeProductionPackData(
   data: ProductionPackPdfData
 ): ProductionPackPdfData {
   const sanitized: ProductionPackPdfData = {
-    brand: safeText(data.brand, "Systemlix FilmOps", 120),
+    brand: safeText(data.brand, "FilmOps", 120),
     projectTitle: safeText(data.projectTitle, "Untitled Project", 300),
     companyName: safeText(data.companyName),
     workspaceName: safeText(data.workspaceName),

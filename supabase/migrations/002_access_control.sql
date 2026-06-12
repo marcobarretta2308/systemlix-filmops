@@ -1,4 +1,4 @@
--- Systemlix FilmOps — Access control migration
+-- FilmOps — Access control migration
 -- Run after schema.sql on existing databases
 
 alter table public.profiles

@@ -1,4 +1,4 @@
--- Systemlix FilmOps — Optional seed (run AFTER creating users in Supabase Auth)
+-- FilmOps — Optional seed (run AFTER creating users in Supabase Auth)
 -- Replace USER_UUID with actual auth.users id after signup
 
 -- Example: link existing user as platform owner of a demo company

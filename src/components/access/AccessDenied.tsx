@@ -31,7 +31,7 @@ export function AccessDenied({
           <p className="mt-4 text-[12px] text-[var(--text-muted)]">
             Contatta{" "}
             <Link href="/request-access" className="text-[var(--text-secondary)] hover:underline">
-              Systemlix
+              FilmOps
             </Link>{" "}
             per assistenza.
           </p>

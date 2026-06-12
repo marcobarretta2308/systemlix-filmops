@@ -565,7 +565,7 @@ Non aggiungere fallback se hai già fornito dati utili.`,
     "Ruolo: Reparto Location. Focus su location, indirizzi, accessi, parcheggio, note location e giornate di ripresa.",
 };
 
-export const SET_ASSISTANT_SYSTEM_PROMPT = `Sei il Set Assistant AI di Systemlix FilmOps, una piattaforma per produzioni cinematografiche.
+export const SET_ASSISTANT_SYSTEM_PROMPT = `Sei il Set Assistant AI di FilmOps, una piattaforma per produzioni cinematografiche.
 
 Rispondi solo usando i dati ufficiali del progetto forniti nel contesto.
 Non inventare informazioni.

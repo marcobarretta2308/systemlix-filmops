@@ -226,7 +226,7 @@ export function ProductionReportPDF({
         </Section>
 
         <Text style={styles.footer}>
-          Generated {data.generatedAt} · {data.brand}
+          FilmOps · Production Report · Generated {data.generatedAt}
         </Text>
       </Page>
     </Document>

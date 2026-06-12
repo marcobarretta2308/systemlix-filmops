@@ -31,7 +31,7 @@ export function ProjectStatusBanner() {
               ? "Le modifiche sono bloccate per tutti tranne il Platform Owner."
               : "Gli accessi operativi non admin sono stati revocati."}
             {!canManagePlatform &&
-              " Contatta Systemlix o la produzione per maggiori informazioni."}
+              " Contatta il team FilmOps o la produzione per maggiori informazioni."}
           </p>
           {!canEditProject && canManageCompany && !canManagePlatform && (
             <p className="mt-1 text-[12px] text-[var(--text-muted)]">

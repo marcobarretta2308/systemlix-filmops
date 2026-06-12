@@ -1,4 +1,4 @@
--- Platform Owner bypass RLS — Systemlix global admin sees all tenants
+-- Platform Owner bypass RLS — FilmOps global admin sees all tenants
 -- Run after rls.sql and 002_access_control.sql
 
 create or replace function public.is_platform_owner()

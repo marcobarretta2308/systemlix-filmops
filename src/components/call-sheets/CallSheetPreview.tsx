@@ -166,7 +166,7 @@ export function CallSheetPreview({ callSheet }: CallSheetPreviewProps) {
 
       <div className="px-6 py-3 border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)]">
         <p className="text-[10px] text-[var(--text-muted)] tracking-wide">
-          Systemlix FilmOps — Documento riservato alla produzione
+          FilmOps — Documento riservato alla produzione
         </p>
       </div>
     </div>

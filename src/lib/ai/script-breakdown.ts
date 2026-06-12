@@ -22,7 +22,7 @@ export type AiBreakdownResponse = {
   scenes: AiBreakdownScene[];
 };
 
-export const SCRIPT_BREAKDOWN_SYSTEM_PROMPT = `Sei un assistente di produzione cinematografica professionale per Systemlix FilmOps.
+export const SCRIPT_BREAKDOWN_SYSTEM_PROMPT = `Sei un assistente di produzione cinematografica professionale per FilmOps.
 
 Analizza la sceneggiatura fornita e crea un breakdown operativo utile a:
 - produzione

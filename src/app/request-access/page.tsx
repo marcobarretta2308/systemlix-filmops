@@ -18,7 +18,7 @@ export default function RequestAccessPage() {
             <Clapperboard className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
           </div>
           <span className="text-[13px] font-medium text-[var(--text-primary)]">
-            Systemlix FilmOps
+            FilmOps
           </span>
         </div>
 
@@ -32,8 +32,8 @@ export default function RequestAccessPage() {
                 Richiedi accesso
               </h1>
               <p className="mt-2 text-[13px] text-[var(--text-muted)] leading-relaxed">
-                L&apos;accesso a Systemlix FilmOps è riservato a produzioni e
-                team autorizzati. Contatta Systemlix per richiedere
+                L&apos;accesso a FilmOps è riservato a produzioni e
+                team autorizzati. Contatta il team FilmOps per richiedere
                 l&apos;attivazione.
               </p>
             </div>
@@ -41,7 +41,7 @@ export default function RequestAccessPage() {
 
           <p className="text-[12px] text-[var(--text-muted)] leading-relaxed border-t border-[var(--border-subtle)] pt-4">
             La piattaforma è <strong className="font-medium text-[var(--text-secondary)]">invite-only</strong>:
-            gli account vengono creati esclusivamente dal team Systemlix.
+            gli account vengono creati esclusivamente dal team FilmOps.
             Non è possibile registrarsi autonomamente.
           </p>
 

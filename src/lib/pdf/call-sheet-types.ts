@@ -96,7 +96,7 @@ export function slugifyFilenamePart(value: string): string {
 export function buildCallSheetFilename(data: CallSheetPdfData): string {
   const project = slugifyFilenamePart(data.projectTitle);
   const day = slugifyFilenamePart(data.dayNumber);
-  return `systemlix-call-sheet-${project}-${day}-v${data.version}.pdf`;
+  return `filmops-call-sheet-${project}-day-${day}.pdf`;
 }
 
 export function formatPdfDate(dateIso: string): string {

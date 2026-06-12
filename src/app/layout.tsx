@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Systemlix FilmOps",
+  title: "FilmOps",
   description:
     "Piattaforma SaaS multi-tenant per produzioni cinematografiche e audiovisive",
 };

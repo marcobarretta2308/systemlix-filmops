@@ -67,7 +67,7 @@ export async function enhanceProductionCheckWithAi(
     issues?: ProductionIssue[];
     suggested_next_actions?: string[];
   }>(
-    `You are a film production supervisor for Systemlix FilmOps.
+    `You are a film production supervisor for FilmOps.
 Analyze project data and return JSON:
 {
   "health_score": number 0-100,

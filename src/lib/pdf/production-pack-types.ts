@@ -116,5 +116,5 @@ export function productionPackFilename(projectTitle: string): string {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "") || "project";
   const date = new Date().toISOString().slice(0, 10);
-  return `systemlix-production-pack-${slug}-${date}.pdf`;
+  return `filmops-production-pack-${slug}-${date}.pdf`;
 }

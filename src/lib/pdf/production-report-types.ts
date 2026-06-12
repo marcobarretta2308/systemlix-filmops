@@ -78,11 +78,25 @@ export function formatGeneratedAt(): string {
   });
 }
 
+export function slugifyReportFilenamePart(value: string): string {
+  return (
+    value
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "project"
+  );
+}
+
 export function buildProductionReportFilename(
   projectTitle: string,
-  reportDate: string
+  dayNumber: string,
+  reportDate?: string
 ): string {
-  const safeProject = projectTitle.replace(/[^\w\-]+/g, "_").slice(0, 40);
-  const safeDate = reportDate.replace(/[^\d-]/g, "");
-  return `Production_Report_${safeProject}_${safeDate || "report"}.pdf`;
+  const slug = slugifyReportFilenamePart(projectTitle);
+  const day =
+    slugifyReportFilenamePart(dayNumber) ||
+    slugifyReportFilenamePart(reportDate ?? "report");
+  return `filmops-production-report-${slug}-day-${day}.pdf`;
 }

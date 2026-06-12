@@ -17,7 +17,7 @@ export function PlatformSetupPrompt({ compact = false }: PlatformSetupPromptProp
           Configura la prima produzione
         </h2>
         <p className="mt-2 text-[13px] text-[var(--text-muted)] max-w-xl leading-relaxed">
-          Crea una produzione, un workspace e un progetto per iniziare a usare Systemlix FilmOps.
+          Crea una produzione, un workspace e un progetto per iniziare a usare FilmOps.
         </p>
         <div className="mt-5">
           <Link href="/platform-setup">
@@ -41,7 +41,7 @@ export function PlatformSetupPrompt({ compact = false }: PlatformSetupPromptProp
           Configura la prima produzione
         </h2>
         <p className="mt-2 text-[14px] text-[var(--text-muted)] leading-relaxed">
-          Crea una produzione, un workspace e un progetto per iniziare a usare Systemlix FilmOps.
+          Crea una produzione, un workspace e un progetto per iniziare a usare FilmOps.
         </p>
       </div>
 

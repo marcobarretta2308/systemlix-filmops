@@ -83,7 +83,7 @@ export default function ProductionPackPage() {
       const match = disposition.match(/filename="([^"]+)"/);
       const filename =
         match?.[1] ??
-        `systemlix-production-pack-${activeProject?.title ?? "project"}.pdf`;
+        `filmops-production-pack-${activeProject?.title ?? "project"}.pdf`;
 
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");

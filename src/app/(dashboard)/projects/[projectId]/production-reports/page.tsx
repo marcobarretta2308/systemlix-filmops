@@ -348,10 +348,12 @@ export default function ProductionReportsPage() {
         throw new Error(body.error ?? "PDF export failed");
       }
       const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `production-report-${draft.report_date}.pdf`;
+      a.download = match?.[1] ?? `filmops-production-report-${draft.report_date}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
       notify("PDF exported.");

@@ -1,4 +1,4 @@
-// Supabase-ready database types for Systemlix FilmOps (multi-tenant)
+// Supabase-ready database types for FilmOps (multi-tenant)
 
 export type ProjectStatus = "active" | "paused" | "archived" | "locked" | "deleted";
 export type CompanyStatus = "active" | "suspended" | "archived";
