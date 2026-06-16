@@ -45,6 +45,7 @@ export default function PlatformSetupPage() {
 
   const needsCompany = userCompanies.length === 0;
   const needsWorkspace = !needsCompany && companyWorkspaces.length === 0;
+  const shouldCreateWorkspace = needsCompany || needsWorkspace;
 
   const [companyName, setCompanyName] = useState("");
   const [companyType, setCompanyType] = useState("production_house");
@@ -86,7 +87,7 @@ export default function PlatformSetupPage() {
       setError("Inserisci il nome della produzione.");
       return;
     }
-    if (!needsCompany && needsWorkspace && !workspaceName.trim()) {
+    if (shouldCreateWorkspace && !workspaceName.trim()) {
       setError("Inserisci il nome del workspace.");
       return;
     }
@@ -106,7 +107,7 @@ export default function PlatformSetupPage() {
             },
           }
         : { companyId: activeCompany?.id ?? userCompanies[0]?.id }),
-      ...(needsWorkspace
+      ...(shouldCreateWorkspace
         ? {
             workspace: {
               name: workspaceName.trim(),
