@@ -102,8 +102,14 @@ export interface Project {
   workspace_id: string;
   company_id: string;
   title: string;
+  production_title?: string;
   production_type: string;
+  director_name?: string;
+  producer_name?: string;
+  production_company?: string;
   description?: string;
+  project_notes?: string;
+  metadata?: Record<string, unknown>;
   status: ProjectStatus;
   start_date?: string;
   end_date?: string;
@@ -498,6 +504,27 @@ export interface ProjectArchiveLog {
   action: ArchiveAction;
   performed_by: string;
   notes?: string;
+  created_at: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  company_id?: string | null;
+  workspace_id?: string | null;
+  project_id: string;
+  user_id?: string | null;
+  user_email?: string | null;
+  user_name?: string | null;
+  department?: string | null;
+  role?: string | null;
+  action: string;
+  area: string;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  entity_label?: string | null;
+  metadata: Record<string, unknown>;
+  ip_address?: string | null;
+  user_agent?: string | null;
   created_at: string;
 }
 

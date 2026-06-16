@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PremiumCard } from "@/components/ui/PremiumCard";
 import { Toast } from "@/components/ui/Toast";
+import { logActivity } from "@/lib/activity-log/logActivity";
 import { useSyncProjectFromUrl } from "@/hooks/useSyncProjectFromUrl";
 import { useProject } from "@/lib/context/PlatformContext";
 import { canGenerateProductionPack } from "@/lib/production-pack/permissions";
@@ -97,6 +98,13 @@ export default function ProductionPackPage() {
       setToast({
         message: "Production pack downloaded successfully.",
         variant: "success",
+      });
+      void logActivity({
+        projectId,
+        action: "production_pack_generated",
+        area: "production_pack",
+        entityLabel: filename,
+        metadata: { sections: [...sections] },
       });
     } catch (error) {
       const message =

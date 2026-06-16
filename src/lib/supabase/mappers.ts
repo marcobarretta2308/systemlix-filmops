@@ -93,8 +93,17 @@ export function mapProject(row: any): Project {
     workspace_id: row.workspace_id,
     company_id: row.company_id,
     title: row.title,
+    production_title: row.production_title ?? undefined,
     production_type: row.production_type ?? "",
+    director_name: row.director_name ?? undefined,
+    producer_name: row.producer_name ?? undefined,
+    production_company: row.production_company ?? undefined,
     description: row.description ?? undefined,
+    project_notes: row.project_notes ?? undefined,
+    metadata:
+      row.metadata && typeof row.metadata === "object"
+        ? (row.metadata as Record<string, unknown>)
+        : {},
     status: (row.status ?? "active") as ProjectStatus,
     start_date: row.start_date ?? undefined,
     end_date: row.end_date ?? undefined,

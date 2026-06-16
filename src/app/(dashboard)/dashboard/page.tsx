@@ -22,7 +22,14 @@ export default function DashboardPage() {
     needsPlatformSetup,
     isLoading,
   } = useCompany();
-  const { accessibleProjects, accessibleProjectsAll, activeProject } = useProject();
+  const {
+    accessibleProjectsAll,
+    activeProject,
+    projectsLoading,
+    projectsLoadError,
+  } = useProject();
+
+  const isLoadingProjects = isLoading || projectsLoading;
 
   if (needsPlatformSetup) {
     return (
@@ -36,7 +43,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (!isLoading && !isPlatformOwner && !canManagePlatform && accessibleProjectsAll.length === 0) {
+  if (!isLoadingProjects && !isPlatformOwner && !canManagePlatform && accessibleProjectsAll.length === 0 && !projectsLoadError) {
     return (
       <EmptyState
         icon={FolderKanban}
@@ -48,6 +55,18 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {projectsLoadError && (
+        <PremiumCard padding="md" variant="ghost" className="border-red-500/30 bg-red-500/5">
+          <p className="text-[13px] text-red-300">{projectsLoadError}</p>
+        </PremiumCard>
+      )}
+
+      {isLoadingProjects ? (
+        <PremiumCard padding="lg" variant="ghost" className="border-[var(--border-subtle)]">
+          <p className="text-[13px] text-[var(--text-muted)]">Caricamento progetti…</p>
+        </PremiumCard>
+      ) : (
+        <>
       <PageHeader
         title="Dashboard"
         description={
@@ -62,7 +81,7 @@ export default function DashboardPage() {
           Gestisci produzioni, progetti e strumenti AI per breakdown, call sheet e assistenza al set.
         </h2>
         <p className="mt-2 text-[13px] text-[var(--text-muted)]">
-          Benvenuto, {user?.full_name}. {companyWorkspaces.length} workspace · {accessibleProjects.length} progetti
+          Benvenuto, {user?.full_name}. {companyWorkspaces.length} workspace · {accessibleProjectsAll.length} progetti
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           {canManagePlatform && (
@@ -123,7 +142,7 @@ export default function DashboardPage() {
         <PremiumCard padding="md">
           <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-[var(--text-muted)] mb-4">Progetti recenti</p>
           <ul className="space-y-1">
-            {accessibleProjects.slice(0, 5).map((p) => (
+            {accessibleProjectsAll.slice(0, 5).map((p) => (
               <li key={p.id}>
                 <Link
                   href={`/projects/${p.id}`}
@@ -137,7 +156,7 @@ export default function DashboardPage() {
                 </Link>
               </li>
             ))}
-            {accessibleProjects.length === 0 && (
+            {accessibleProjectsAll.length === 0 && (
               <p className="text-[13px] text-[var(--text-muted)]">Nessun progetto.</p>
             )}
           </ul>
@@ -146,6 +165,8 @@ export default function DashboardPage() {
           </Link>
         </PremiumCard>
       </div>
+        </>
+      )}
     </div>
   );
 }

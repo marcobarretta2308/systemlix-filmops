@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { PremiumCard } from "@/components/ui/PremiumCard";
 import { Select } from "@/components/ui/Select";
 import { Toast } from "@/components/ui/Toast";
+import { logActivity } from "@/lib/activity-log/logActivity";
 import { useSyncProjectFromUrl } from "@/hooks/useSyncProjectFromUrl";
 import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
 import {
@@ -130,6 +131,11 @@ export default function ProductionIntelligencePage() {
         action: "production_check",
       })) as ProductionCheckResult;
       setCheckResult(data);
+      void logActivity({
+        projectId: projectId!,
+        action: "production_check_run",
+        area: "production_intelligence",
+      });
     } catch (err) {
       notify(err instanceof Error ? err.message : "Errore analisi", "error");
     } finally {
@@ -150,6 +156,13 @@ export default function ProductionIntelligencePage() {
         callSheetId: effectiveSheetId,
       })) as CallSheetCheckResult;
       setSheetResult(data);
+      void logActivity({
+        projectId: projectId!,
+        action: "call_sheet_analyzed",
+        area: "production_intelligence",
+        entityType: "call_sheet",
+        entityId: effectiveSheetId,
+      });
     } catch (err) {
       notify(err instanceof Error ? err.message : "Errore analisi", "error");
     } finally {
@@ -169,6 +182,12 @@ export default function ProductionIntelligencePage() {
         question: text,
       })) as ProjectSearchResult;
       setSearchResult(data);
+      void logActivity({
+        projectId: projectId!,
+        action: "project_search_used",
+        area: "production_intelligence",
+        metadata: { question: text },
+      });
     } catch (err) {
       notify(err instanceof Error ? err.message : "Errore ricerca", "error");
     } finally {

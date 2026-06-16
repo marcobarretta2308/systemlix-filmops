@@ -1,5 +1,8 @@
 "use client";
 
+import { logActivity } from "@/lib/activity-log/logActivity";
+import type { ProjectDetailsUpdate } from "@/lib/projects/types";
+import { isProjectVisible } from "@/lib/projects/filters";
 import {
   getAuthDenialReason,
   isCompanyMembershipActive,
@@ -116,6 +119,9 @@ interface ProjectContextValue {
   projectRole: ProjectRole | null;
   accessibleProjects: Project[];
   accessibleProjectsAll: Project[];
+  projectsLoading: boolean;
+  projectsLoadError: string | null;
+  reloadProjects: () => Promise<void>;
   setActiveProject: (projectId: string) => void;
   clearActiveProject: () => void;
   createProject: (data: {
@@ -127,6 +133,9 @@ interface ProjectContextValue {
     end_date?: string;
     workspace_id: string;
   }) => Promise<Project | null>;
+  updateProjectDetails: (
+    data: ProjectDetailsUpdate
+  ) => Promise<{ project: Project | null; error: string | null }>;
   updateProjectStatus: (
     status: ProjectStatus,
     notes?: string
@@ -365,6 +374,8 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [companyMembers, setCompanyMembers] = useState<CompanyMember[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectsLoadError, setProjectsLoadError] = useState<string | null>(null);
   const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
 
   const [scenes, setScenesState] = useState<Scene[]>([]);
@@ -556,10 +567,16 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
 
             const { projects: projs, members } = await db.fetchProjects(
               supabase,
-              validCompany
+              validCompany,
+              {
+                userId,
+                companyId: validCompany,
+                workspaceId: getStoredWorkspaceId() ?? undefined,
+              }
             );
             setProjects(projs);
             setProjectMembers(members);
+            setProjectsLoadError(null);
 
             const storedProj = getStoredProjectId();
             const membership = memberships.find(
@@ -606,10 +623,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Errore caricamento accessi";
+        const message = formatSupabaseError(err);
         console.error("[FilmOps] loadCompanyData error:", err);
         updateAccessDebug({ lastError: message });
+        setProjectsLoadError(`Failed to load projects: ${message}`);
         if (owner) {
           result = [];
           needsSetup = true;
@@ -703,6 +720,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     setWorkspaces([]);
     setProjects([]);
     setProjectMembers([]);
+    setProjectsLoadError(null);
     setScenesState([]);
     setCastCrewState([]);
     setLocations([]);
@@ -907,13 +925,13 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   }, [projectMembers, activeProjectId]);
 
   const accessibleProjectsAll = useMemo(() => {
-    if (!activeCompanyId) return [];
+    if (!activeCompanyId || companyLoading) return [];
     const isAdmin =
       isPlatformOwner ||
       companyRole === "platform_owner" ||
       companyRole === "company_admin";
     const companyProjects = projects.filter(
-      (p) => p.company_id === activeCompanyId && !p.is_deleted
+      (p) => p.company_id === activeCompanyId && isProjectVisible(p)
     );
     if (isAdmin) return companyProjects;
     const ids = new Set(userProjectMemberships.map((m) => m.project_id));
@@ -921,17 +939,62 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   }, [
     projects,
     activeCompanyId,
+    companyLoading,
     companyRole,
     userProjectMemberships,
     isPlatformOwner,
   ]);
 
-  const accessibleProjects = useMemo(() => {
-    if (!activeWorkspaceId) return accessibleProjectsAll;
-    return accessibleProjectsAll.filter(
-      (p) => p.workspace_id === activeWorkspaceId
-    );
-  }, [accessibleProjectsAll, activeWorkspaceId]);
+  const accessibleProjects = accessibleProjectsAll;
+
+  const reloadProjects = useCallback(async () => {
+    if (!supabase || !activeCompanyId || !currentUserId) return;
+    setProjectsLoading(true);
+    setProjectsLoadError(null);
+    try {
+      const { projects: projs, members } = await db.fetchProjects(
+        supabase,
+        activeCompanyId,
+        {
+          userId: currentUserId,
+          companyId: activeCompanyId,
+          workspaceId: activeWorkspaceId ?? undefined,
+        }
+      );
+
+      if (isPlatformOwner) {
+        setProjects((prev) => {
+          const other = prev.filter((p) => p.company_id !== activeCompanyId);
+          return [...other, ...projs];
+        });
+        setProjectMembers((prev) => {
+          const projIds = new Set(projs.map((p) => p.id));
+          const other = prev.filter((m) => !projIds.has(m.project_id));
+          return [...other, ...members];
+        });
+      } else {
+        setProjects(projs);
+        setProjectMembers(members);
+      }
+    } catch (err) {
+      const message = formatSupabaseError(err);
+      console.error("[FilmOps] reloadProjects error:", err);
+      setProjectsLoadError(`Failed to load projects: ${message}`);
+    } finally {
+      setProjectsLoading(false);
+    }
+  }, [
+    supabase,
+    activeCompanyId,
+    currentUserId,
+    activeWorkspaceId,
+    isPlatformOwner,
+  ]);
+
+  useEffect(() => {
+    if (!supabase || !activeCompanyId || !currentUserId || companyLoading) return;
+    void reloadProjects();
+  }, [activeCompanyId, currentUserId, companyLoading, supabase, reloadProjects]);
 
   const activeProject = useMemo(
     () => projects.find((p) => p.id === activeProjectId) ?? null,
@@ -944,7 +1007,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     if (!activeCompanyId) return true;
     if (companyWorkspaces.length === 0) return true;
     const companyProjects = projects.filter(
-      (p) => p.company_id === activeCompanyId && !p.is_deleted
+      (p) => p.company_id === activeCompanyId && isProjectVisible(p)
     );
     return companyProjects.length === 0;
   }, [
@@ -1399,32 +1462,29 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       if (!supabase || !activeCompanyId || !currentUserId) return null;
       if (!canCreateProject(user, companyRole ?? "viewer")) return null;
       try {
-        const project = await db.createProjectRecord(supabase, currentUserId, {
-          company_id: activeCompanyId,
-          workspace_id: data.workspace_id,
-          title: data.title,
-          production_type: data.production_type,
-          description: data.description,
-          status: data.status,
-          start_date: data.start_date,
-          end_date: data.end_date,
-        });
-        setProjects((prev) => [...prev, project]);
-        setProjectMembers((prev) => [
-          ...prev,
+        const { project, creatorMembership } = await db.createProjectRecord(
+          supabase,
+          currentUserId,
           {
-            id: crypto.randomUUID(),
-            project_id: project.id,
-            user_id: currentUserId,
-            role: "project_admin",
-            access_status: "active",
-            created_at: new Date().toISOString(),
-          },
-        ]);
+            company_id: activeCompanyId,
+            workspace_id: data.workspace_id,
+            title: data.title,
+            production_type: data.production_type,
+            description: data.description,
+            status: data.status,
+            start_date: data.start_date,
+            end_date: data.end_date,
+          }
+        );
+        setProjects((prev) => [...prev, project]);
+        setProjectMembers((prev) => [...prev, creatorMembership]);
         setActiveProjectId(project.id);
         setStoredProjectId(project.id);
+        setActiveWorkspaceId(project.workspace_id);
+        setStoredWorkspaceId(project.workspace_id);
         return project;
-      } catch {
+      } catch (err) {
+        console.error("[FilmOps] createProject error:", err);
         return null;
       }
     },
@@ -1440,6 +1500,80 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       )
     );
   }, []);
+
+  const updateProjectDetails = useCallback(
+    async (
+      data: ProjectDetailsUpdate
+    ): Promise<{ project: Project | null; error: string | null }> => {
+      if (!activeProjectId || !activeProject) {
+        return { project: null, error: "No project selected" };
+      }
+      if (
+        !canEditProject(
+          activeProject,
+          user,
+          companyRole ?? "viewer",
+          projectRole ?? undefined,
+          activeProjectMembership,
+          projectPermissions
+        )
+      ) {
+        return { project: null, error: "You do not have permission to edit this project" };
+      }
+
+      if (process.env.NODE_ENV === "development") {
+        console.log("[FilmOps] Project save request:", {
+          projectId: activeProjectId,
+          payload: data,
+        });
+      }
+
+      try {
+        const response = await fetch(`/api/projects/${activeProjectId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const body = (await response.json().catch(() => ({}))) as {
+          project?: Project;
+          error?: string;
+        };
+
+        if (!response.ok || !body.project) {
+          const message = body.error ?? `Failed to save project (${response.status})`;
+          if (process.env.NODE_ENV === "development") {
+            console.warn("[FilmOps] Project save failed:", {
+              projectId: activeProjectId,
+              message,
+            });
+          }
+          return { project: null, error: message };
+        }
+
+        updateProjectInState(activeProjectId, body.project);
+
+        if (process.env.NODE_ENV === "development") {
+          console.log("[FilmOps] Project saved:", activeProjectId, body.project);
+        }
+
+        return { project: body.project, error: null };
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to save project";
+        return { project: null, error: `Failed to save project: ${message}` };
+      }
+    },
+    [
+      activeProjectId,
+      activeProject,
+      user,
+      companyRole,
+      projectRole,
+      activeProjectMembership,
+      projectPermissions,
+      updateProjectInState,
+    ]
+  );
 
   const updateProjectStatus = useCallback(
     async (
@@ -1884,6 +2018,12 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         });
         setBreakdownByProject((prev) => ({ ...prev, [projectId]: [] }));
         await loadProjectData(projectId);
+        void logActivity({
+          projectId,
+          action: "breakdown_saved",
+          area: "script_breakdown",
+          metadata: { scenes: body.saved ?? created.length },
+        });
         return { saved: body.saved ?? created.length, error: null };
       } catch (err) {
         console.error("[FilmOps] saveBreakdownToProject error:", err);
@@ -2064,9 +2204,13 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       projectRole,
       accessibleProjects,
       accessibleProjectsAll,
+      projectsLoading,
+      projectsLoadError,
+      reloadProjects,
       setActiveProject,
       clearActiveProject,
       createProject,
+      updateProjectDetails,
       updateProjectStatus,
       reactivateProject,
       archiveProject,
@@ -2160,9 +2304,13 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       canManageAccess,
       accessibleProjects,
       accessibleProjectsAll,
+      projectsLoading,
+      projectsLoadError,
+      reloadProjects,
       setActiveProject,
       clearActiveProject,
       createProject,
+      updateProjectDetails,
       updateProjectStatus,
       reactivateProject,
       archiveProject,

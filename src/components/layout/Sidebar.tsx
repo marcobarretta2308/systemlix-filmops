@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
+import { canViewActivityLog } from "@/lib/activity-log/permissions";
 import { canViewDocuments } from "@/lib/documents/permissions";
 import {
   getDepartmentDashboardLabel,
@@ -19,6 +20,7 @@ import {
   ClipboardList,
   FileText,
   FolderOpen,
+  History,
   FolderKanban,
   LayoutDashboard,
   MapPin,
@@ -43,7 +45,8 @@ type NavItemDef = {
 function projectNav(
   projectId: string,
   department?: string | null,
-  canShowArchive = false
+  canShowArchive = false,
+  canShowActivityLog = false
 ): NavItemDef[] {
   const departmentLabel = getDepartmentDashboardLabel(department);
 
@@ -143,6 +146,13 @@ function projectNav(
       visible: (p) => p.can_view_set_assistant,
     },
     {
+      key: "activity-log",
+      href: `/projects/${projectId}/activity-log`,
+      label: "Activity Log",
+      icon: History,
+      visible: (_p, isDept) => !isDept && canShowActivityLog,
+    },
+    {
       key: "archive",
       href: `/projects/${projectId}/archive`,
       label: "Archive / Lock",
@@ -198,6 +208,12 @@ export function Sidebar() {
     projectRole,
   } = useProject();
 
+  const canViewProjectActivityLog = canViewActivityLog(
+    user,
+    companyRole ?? "viewer",
+    projectRole ?? undefined
+  );
+
   const showDocumentsNav = canViewDocuments(user, companyRole, projectRole);
 
   const isDepartmentNav = isDepartmentDashboard;
@@ -224,7 +240,8 @@ export function Sidebar() {
     ? projectNav(
         activeProject.id,
         projectPermissions.department,
-        canArchiveProject || canDeleteProject
+        canArchiveProject || canDeleteProject,
+        canViewProjectActivityLog
       ).filter((item) => {
         if (item.key === "documents" && !showDocumentsNav) return false;
         const defaultVisible = item.visible

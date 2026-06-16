@@ -19,6 +19,7 @@ import {
   TableTd,
   TableTh,
 } from "@/components/ui/Table";
+import { logActivity } from "@/lib/activity-log/logActivity";
 import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
 import {
   DOCUMENT_CATEGORIES,
@@ -158,6 +159,14 @@ export function DocumentsVault({
       } else {
         window.open(result.url, "_blank", "noopener,noreferrer");
       }
+      void logActivity({
+        projectId,
+        action: "document_opened",
+        area: "documents",
+        entityType: "document",
+        entityId: doc.id,
+        entityLabel: doc.original_file_name,
+      });
       return;
     }
 
@@ -166,6 +175,14 @@ export function DocumentsVault({
     anchor.download = doc.original_file_name;
     anchor.rel = "noopener";
     anchor.click();
+    void logActivity({
+      projectId,
+      action: "document_downloaded",
+      area: "documents",
+      entityType: "document",
+      entityId: doc.id,
+      entityLabel: doc.original_file_name,
+    });
   };
 
   const handleDelete = async (doc: ProjectDocument) => {
@@ -449,6 +466,11 @@ export function DocumentsVault({
           onSuccess={async () => {
             await refreshDocuments();
             notify("Document uploaded successfully.", "success");
+            void logActivity({
+              projectId,
+              action: "document_uploaded",
+              area: "documents",
+            });
           }}
         />
       )}

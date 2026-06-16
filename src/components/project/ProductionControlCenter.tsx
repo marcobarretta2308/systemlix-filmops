@@ -7,6 +7,7 @@ import { PremiumCard } from "@/components/ui/PremiumCard";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ModuleNavGrid } from "@/components/project/ModuleNavGrid";
+import { ProjectFilmSettings } from "@/components/project/ProjectFilmSettings";
 import { ProductionEmptyInsights } from "@/components/project/ProductionEmptyInsights";
 import { ProductionPhaseBadge } from "@/components/project/ProductionPhaseBadge";
 import { ProjectSetupChecklist } from "@/components/project/ProjectSetupChecklist";
@@ -320,6 +321,8 @@ export function ProductionControlCenter({
           ) : undefined
         }
       />
+
+      {viewMode === "full" && <ProjectFilmSettings project={project} />}
 
       {/* Hero metrics */}
       <div className="grid gap-[var(--card-gap)] lg:grid-cols-3">

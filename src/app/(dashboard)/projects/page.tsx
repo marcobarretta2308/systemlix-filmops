@@ -12,6 +12,7 @@ import {
   TableTd,
   TableTh,
 } from "@/components/ui/Table";
+import { PremiumCard } from "@/components/ui/PremiumCard";
 import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
 import { FolderKanban, Plus } from "lucide-react";
 import Link from "next/link";
@@ -23,8 +24,16 @@ export default function ProjectsPage() {
     activeWorkspace,
     canCreateProject,
     needsPlatformSetup,
+    isLoading: companyLoading,
   } = useCompany();
-  const { accessibleProjects, setActiveProject } = useProject();
+  const {
+    accessibleProjectsAll,
+    setActiveProject,
+    projectsLoading,
+    projectsLoadError,
+  } = useProject();
+
+  const isLoadingProjects = companyLoading || projectsLoading;
 
   const newProjectHref =
     needsPlatformSetup && isPlatformOwner
@@ -32,11 +41,17 @@ export default function ProjectsPage() {
       : "/projects/new";
 
   const filtered = activeWorkspace
-    ? accessibleProjects.filter((p) => p.workspace_id === activeWorkspace.id)
-    : accessibleProjects;
+    ? accessibleProjectsAll.filter((p) => p.workspace_id === activeWorkspace.id)
+    : accessibleProjectsAll;
 
   return (
     <div>
+      {projectsLoadError && (
+        <PremiumCard padding="md" variant="ghost" className="mb-6 border-red-500/30 bg-red-500/5">
+          <p className="text-[13px] text-red-300">{projectsLoadError}</p>
+        </PremiumCard>
+      )}
+
       <PageHeader
         title="Progetti"
         description={
@@ -56,7 +71,11 @@ export default function ProjectsPage() {
         }
       />
 
-      {filtered.length === 0 ? (
+      {isLoadingProjects ? (
+        <PremiumCard padding="lg" variant="ghost" className="border-[var(--border-subtle)]">
+          <p className="text-[13px] text-[var(--text-muted)]">Caricamento progetti…</p>
+        </PremiumCard>
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={FolderKanban}
           title="Nessun progetto presente"

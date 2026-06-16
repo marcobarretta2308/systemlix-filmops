@@ -21,13 +21,13 @@ export default function WorkspacesPage() {
     createWorkspace,
     canCreateWorkspace,
   } = useCompany();
-  const { accessibleProjects } = useProject();
+  const { accessibleProjectsAll } = useProject();
   const [modalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
   const projectsInWorkspace = (wsId: string) =>
-    accessibleProjects.filter((p) => p.workspace_id === wsId);
+    accessibleProjectsAll.filter((p) => p.workspace_id === wsId);
 
   const handleCreate = () => {
     if (!name.trim()) return;

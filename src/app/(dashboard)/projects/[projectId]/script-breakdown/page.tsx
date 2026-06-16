@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { PremiumCard } from "@/components/ui/PremiumCard";
 import { Textarea } from "@/components/ui/Textarea";
 import { Toast } from "@/components/ui/Toast";
+import { logActivity } from "@/lib/activity-log/logActivity";
 import { useSyncProjectFromUrl } from "@/hooks/useSyncProjectFromUrl";
 import type { ProBreakdownResult } from "@/lib/ai/script-breakdown-pro";
 import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
@@ -382,6 +383,12 @@ export default function ScriptBreakdownPage() {
         `Resumed analysis — ${result.scenes.length} scenes ready for review.`,
         "success"
       );
+      void logActivity({
+        projectId,
+        action: "breakdown_generated",
+        area: "script_breakdown",
+        metadata: { scenes: result.scenes.length, resumed: true },
+      });
     } catch (err) {
       notify(
         `Script breakdown failed: ${
@@ -478,6 +485,12 @@ export default function ScriptBreakdownPage() {
         `Analysis complete — ${result.scenes.length} scenes ready for review.`,
         "success"
       );
+      void logActivity({
+        projectId,
+        action: "breakdown_generated",
+        area: "script_breakdown",
+        metadata: { scenes: result.scenes.length },
+      });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Network error during analysis";

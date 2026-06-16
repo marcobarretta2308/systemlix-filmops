@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/Table";
 import { Toast } from "@/components/ui/Toast";
 import { Modal } from "@/components/ui/Modal";
+import { logActivity } from "@/lib/activity-log/logActivity";
 import { useSyncProjectFromUrl } from "@/hooks/useSyncProjectFromUrl";
 import { useAuth, useCompany, useProject } from "@/lib/context/PlatformContext";
 import type { ArchiveAction } from "@/lib/types";
@@ -105,6 +106,17 @@ export default function ArchivePage() {
               ? "Progetto archiviato. Gli accessi operativi non admin sono stati revocati."
               : "Progetto bloccato. Gli accessi operativi non admin sono stati revocati.";
           showToast(msg, "success");
+          void logActivity({
+            projectId: project.id,
+            action:
+              modalAction === "project_archived"
+                ? "project_archived"
+                : "project_locked",
+            area: "archive",
+            entityType: "project",
+            entityId: project.id,
+            entityLabel: project.title,
+          });
         } else {
           showToast(operationFailed(result.error ?? "Operation failed"), "error");
         }
@@ -126,6 +138,14 @@ export default function ArchivePage() {
       const result = await deleteProject(deleteConfirm.trim());
       if (result.ok) {
         showToast("Project moved to trash", "success");
+        void logActivity({
+          projectId: project.id,
+          action: "project_deleted",
+          area: "archive",
+          entityType: "project",
+          entityId: project.id,
+          entityLabel: project.title,
+        });
         setDeleteModalOpen(false);
         setDeleteConfirm("");
         router.push("/projects");
@@ -150,6 +170,14 @@ export default function ArchivePage() {
           "Progetto riattivato. Gli accessi utenti vanno riabilitati manualmente.",
           "success"
         );
+        void logActivity({
+          projectId: project.id,
+          action: "project_unlocked",
+          area: "archive",
+          entityType: "project",
+          entityId: project.id,
+          entityLabel: project.title,
+        });
       } else {
         showToast(operationFailed(result.error ?? "Reactivation failed"), "error");
       }

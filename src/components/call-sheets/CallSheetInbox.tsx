@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PremiumCard } from "@/components/ui/PremiumCard";
 import { SectionTitle } from "@/components/ui/SectionTitle";
+import { logActivity } from "@/lib/activity-log/logActivity";
 import { acknowledgeCallSheetReceipt } from "@/lib/call-sheets/distribution";
 import {
   getAcknowledgedInboxItems,
@@ -98,6 +99,13 @@ export function CallSheetInbox({
     }
 
     onNotify?.("Presa visione confermata.", "success");
+    void logActivity({
+      projectId,
+      action: "call_sheet_acknowledged",
+      area: "call_sheets",
+      entityType: "call_sheet_recipient",
+      entityId: recipientId,
+    });
     onAcknowledged();
   };
 

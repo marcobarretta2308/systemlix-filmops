@@ -48,6 +48,8 @@ import {
   sceneToInsertRow,
   sceneToRow,
 } from "./mappers";
+import { filterVisibleProjects } from "@/lib/projects/filters";
+import { projectMemberPermissionPayload } from "@/lib/permissions/project-permissions";
 import { formatSupabaseError, logSupabaseError } from "./errors";
 
 const PROFILE_COLUMNS =
@@ -172,17 +174,48 @@ export async function fetchAllWorkspaces(
   return (data ?? []).map(mapWorkspace);
 }
 
+type ProjectsFetchLogContext = {
+  userId?: string;
+  companyId?: string;
+  workspaceId?: string;
+};
+
+function logProjectsFetch(
+  label: string,
+  context: ProjectsFetchLogContext,
+  projects: Project[],
+  error?: unknown
+) {
+  if (process.env.NODE_ENV !== "development") return;
+  console.log(`[FilmOps] ${label}`, {
+    userId: context.userId ?? null,
+    companyId: context.companyId ?? null,
+    workspaceId: context.workspaceId ?? null,
+    filters: {
+      is_deleted: "visible when null or false",
+      status: "hide deleted/trashed only",
+    },
+    count: projects.length,
+    projectIds: projects.map((p) => p.id),
+    error: error ? formatSupabaseError(error) : null,
+  });
+}
+
 export async function fetchAllProjects(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  logContext?: ProjectsFetchLogContext
 ): Promise<{ projects: Project[]; members: ProjectMember[] }> {
   const { data: projects, error: pErr } = await supabase
     .from("projects")
     .select("*")
-    .eq("is_deleted", false)
     .order("created_at", { ascending: false });
-  if (pErr) throw pErr;
+  if (pErr) {
+    logProjectsFetch("fetchAllProjects", logContext ?? {}, [], pErr);
+    throw pErr;
+  }
 
-  const projectList = (projects ?? []).map(mapProject);
+  const projectList = filterVisibleProjects((projects ?? []).map(mapProject));
+  logProjectsFetch("fetchAllProjects", logContext ?? {}, projectList);
   if (projectList.length === 0) return { projects: [], members: [] };
 
   const members = await fetchProjectMembersForProjects(
@@ -294,17 +327,21 @@ export async function fetchWorkspaces(
 
 export async function fetchProjects(
   supabase: SupabaseClient,
-  companyId: string
+  companyId: string,
+  logContext?: ProjectsFetchLogContext
 ): Promise<{ projects: Project[]; members: ProjectMember[] }> {
   const { data: projects, error: pErr } = await supabase
     .from("projects")
     .select("*")
     .eq("company_id", companyId)
-    .eq("is_deleted", false)
     .order("created_at", { ascending: false });
-  if (pErr) throw pErr;
+  if (pErr) {
+    logProjectsFetch("fetchProjects", { companyId, ...logContext }, [], pErr);
+    throw pErr;
+  }
 
-  const projectList = (projects ?? []).map(mapProject);
+  const projectList = filterVisibleProjects((projects ?? []).map(mapProject));
+  logProjectsFetch("fetchProjects", { companyId, ...logContext }, projectList);
   if (projectList.length === 0) return { projects: [], members: [] };
 
   const members = await fetchProjectMembersForProjects(
@@ -891,7 +928,7 @@ export async function createPlatformSetup(
     throw new Error("Workspace mancante per il setup iniziale");
   }
 
-  const project = await createProjectRecord(supabase, userId, {
+  const { project, creatorMembership } = await createProjectRecord(supabase, userId, {
     company_id: company.id,
     workspace_id: workspace.id,
     title: input.project.title,
@@ -902,20 +939,12 @@ export async function createPlatformSetup(
     end_date: input.project.end_date,
   });
 
-  const { data: projectMemberRow, error: pmErr } = await supabase
-    .from("project_members")
-    .select("*")
-    .eq("project_id", project.id)
-    .eq("user_id", userId)
-    .single();
-  if (pmErr) throw pmErr;
-
   return {
     company,
     companyMember,
     workspace,
     project,
-    projectMember: mapProjectMember(projectMemberRow),
+    projectMember: creatorMembership,
   };
 }
 
@@ -951,7 +980,7 @@ export async function createProjectRecord(
     start_date?: string;
     end_date?: string;
   }
-): Promise<Project> {
+): Promise<{ project: Project; creatorMembership: ProjectMember }> {
   const { data: row, error } = await supabase
     .from("projects")
     .insert({
@@ -968,15 +997,30 @@ export async function createProjectRecord(
     .single();
   if (error) throw error;
 
+  const permissionPayload = projectMemberPermissionPayload(
+    "project_admin",
+    "Production"
+  );
   const { error: pmErr } = await supabase.from("project_members").insert({
     project_id: row.id,
     user_id: userId,
-    role: "project_admin",
     access_status: "active",
+    ...permissionPayload,
   });
   if (pmErr) throw pmErr;
 
-  return mapProject(row);
+  const { data: memberRow, error: memberErr } = await supabase
+    .from("project_members")
+    .select(PROJECT_MEMBER_WITH_PROFILE_SELECT)
+    .eq("project_id", row.id)
+    .eq("user_id", userId)
+    .single();
+  if (memberErr) throw memberErr;
+
+  return {
+    project: mapProject(row),
+    creatorMembership: mapProjectMember(memberRow),
+  };
 }
 
 function statusToArchiveAction(status: ProjectStatus): ArchiveAction {
@@ -1021,6 +1065,66 @@ export async function revokeOperationalProjectAccess(
   );
 
   return revocable.length;
+}
+
+export async function updateProjectDetailsRecord(
+  supabase: SupabaseClient,
+  projectId: string,
+  data: {
+    title?: string;
+    production_title?: string | null;
+    production_type?: string | null;
+    director_name?: string | null;
+    producer_name?: string | null;
+    production_company?: string | null;
+    description?: string | null;
+    project_notes?: string | null;
+    start_date?: string | null;
+    end_date?: string | null;
+  }
+): Promise<Project> {
+  const updates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (data.title !== undefined) updates.title = data.title.trim();
+  if (data.production_title !== undefined) {
+    updates.production_title = data.production_title?.trim() || null;
+  }
+  if (data.production_type !== undefined) {
+    updates.production_type = data.production_type?.trim() || null;
+  }
+  if (data.director_name !== undefined) {
+    updates.director_name = data.director_name?.trim() || null;
+  }
+  if (data.producer_name !== undefined) {
+    updates.producer_name = data.producer_name?.trim() || null;
+  }
+  if (data.production_company !== undefined) {
+    updates.production_company = data.production_company?.trim() || null;
+  }
+  if (data.description !== undefined) {
+    updates.description = data.description?.trim() || null;
+  }
+  if (data.project_notes !== undefined) {
+    updates.project_notes = data.project_notes?.trim() || null;
+  }
+  if (data.start_date !== undefined) {
+    updates.start_date = data.start_date || null;
+  }
+  if (data.end_date !== undefined) {
+    updates.end_date = data.end_date || null;
+  }
+
+  const { data: row, error } = await supabase
+    .from("projects")
+    .update(updates)
+    .eq("id", projectId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return mapProject(row);
 }
 
 export async function updateProjectStatusRecord(

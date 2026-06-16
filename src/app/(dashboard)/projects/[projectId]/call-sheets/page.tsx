@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { PremiumCard } from "@/components/ui/PremiumCard";
 import { Select } from "@/components/ui/Select";
 import { Toast } from "@/components/ui/Toast";
+import { logActivity } from "@/lib/activity-log/logActivity";
 import { useSyncProjectFromUrl } from "@/hooks/useSyncProjectFromUrl";
 import {
   callSheetRequiresNewVersion,
@@ -129,7 +130,11 @@ export default function CallSheetsPage() {
       status: "draft",
       generated_by: user.id,
       created_by: user.id,
-      production_title: activeCompany?.name ?? "Produzione",
+      production_title:
+        project.production_title ??
+        project.production_company ??
+        activeCompany?.name ??
+        "Produzione",
       project_title: project.title,
       day_number: day.day_number,
       date: day.date,
@@ -182,6 +187,14 @@ export default function CallSheetsPage() {
       setLocalPreview(saved);
       setActiveCallSheet(saved);
       notify(`Call sheet v${version} generated for ${day.day_number}.`);
+      void logActivity({
+        projectId: projectId!,
+        action: "call_sheet_created",
+        area: "call_sheets",
+        entityType: "call_sheet",
+        entityId: saved.id,
+        entityLabel: `Day ${saved.day_number}`,
+      });
     } else {
       notify(
         operationFailed(saveError ?? "Could not save call sheet"),
@@ -321,6 +334,15 @@ export default function CallSheetsPage() {
       setLocalPreview(updated);
       setActiveCallSheet(updated);
       notify(`Call sheet sent to ${result.recipients.length} recipients.`);
+      void logActivity({
+        projectId: projectId!,
+        action: "call_sheet_sent",
+        area: "call_sheets",
+        entityType: "call_sheet",
+        entityId: preview?.id,
+        entityLabel: preview?.day_number,
+        metadata: { recipients: result.recipients.length },
+      });
       return { ok: true };
     }
     return result;
@@ -353,6 +375,13 @@ export default function CallSheetsPage() {
       anchor.click();
       URL.revokeObjectURL(url);
       notify("PDF downloaded.");
+      void logActivity({
+        projectId: projectId!,
+        action: "call_sheet_pdf_generated",
+        area: "call_sheets",
+        entityType: "call_sheet",
+        entityId: callSheetId,
+      });
     } catch {
       notify(operationFailed("Network error during PDF export"), "error");
     } finally {
@@ -382,7 +411,7 @@ export default function CallSheetsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          projectId,
+          projectId: projectId!,
           ...(callSheetId ? { callSheetId } : {}),
           ...(!callSheetId && shootingDayId ? { shootingDayId } : {}),
         }),
@@ -402,6 +431,13 @@ export default function CallSheetsPage() {
       anchor.click();
       URL.revokeObjectURL(url);
       notify("PDF downloaded.");
+      void logActivity({
+        projectId: projectId!,
+        action: "call_sheet_pdf_generated",
+        area: "call_sheets",
+        entityType: "call_sheet",
+        entityId: callSheetId,
+      });
     } catch {
       notify(operationFailed("Network error during PDF export"), "error");
     } finally {
@@ -672,6 +708,14 @@ export default function CallSheetsPage() {
                   setLocalPreview(sheet);
                   setActiveCallSheet(sheet);
                   setTab("generator");
+                  void logActivity({
+                    projectId: projectId!,
+                    action: "call_sheet_opened",
+                    area: "call_sheets",
+                    entityType: "call_sheet",
+                    entityId: sheet.id,
+                    entityLabel: `Day ${sheet.day_number}`,
+                  });
                 }}
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">

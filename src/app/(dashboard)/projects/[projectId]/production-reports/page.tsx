@@ -9,6 +9,7 @@ import { PremiumCard } from "@/components/ui/PremiumCard";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Toast } from "@/components/ui/Toast";
+import { logActivity } from "@/lib/activity-log/logActivity";
 import { useSyncProjectFromUrl } from "@/hooks/useSyncProjectFromUrl";
 import {
   ISSUE_CATEGORIES,
@@ -311,6 +312,14 @@ export default function ProductionReportsPage() {
     if (report) {
       setDraft(report);
       notify("Report submitted for approval.");
+      void logActivity({
+        projectId: projectId!,
+        action: "production_report_submitted",
+        area: "production_reports",
+        entityType: "production_report",
+        entityId: report.id,
+        entityLabel: report.title ?? report.report_date,
+      });
     }
   };
 
@@ -326,6 +335,14 @@ export default function ProductionReportsPage() {
     if (report) {
       setDraft(report);
       notify("Report approved.");
+      void logActivity({
+        projectId: projectId!,
+        action: "production_report_approved",
+        area: "production_reports",
+        entityType: "production_report",
+        entityId: report.id,
+        entityLabel: report.title ?? report.report_date,
+      });
     }
   };
 
@@ -357,6 +374,14 @@ export default function ProductionReportsPage() {
       a.click();
       URL.revokeObjectURL(url);
       notify("PDF exported.");
+      void logActivity({
+        projectId,
+        action: "production_report_pdf_generated",
+        area: "production_reports",
+        entityType: "production_report",
+        entityId: draft.id,
+        entityLabel: draft.title ?? draft.report_date,
+      });
     } catch (err) {
       notify(
         operationFailed(
